@@ -1,4 +1,5 @@
 (fp_lib_table
 	(version 7)
 	(lib (name "rv1103b") (type "KiCad") (uri "${KIPRJMOD}/rv1103b.pretty") (options "") (descr ""))
+	(lib (name "ov9281") (type "KiCad") (uri "${KIPRJMOD}/ov9281.pretty") (options "") (descr ""))
 )
