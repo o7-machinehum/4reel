@@ -517,7 +517,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "wingcam_ee.kicad_pro",
+    "filename": "4reel_ee.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -820,8 +820,8 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "wingcam_ee.kicad_sch",
-        "name": "wingcam_ee",
+        "filename": "4reel_ee.kicad_sch",
+        "name": "4reel_ee",
         "uuid": "6672ba93-cf23-43d1-a630-d60a05df29bc"
       }
     ],
@@ -831,7 +831,7 @@
   "sheets": [
     [
       "6672ba93-cf23-43d1-a630-d60a05df29bc",
-      "wingcam_ee"
+      "4reel_ee"
     ],
     [
       "01971d03-523c-4f9d-a771-501f54aedf5c",

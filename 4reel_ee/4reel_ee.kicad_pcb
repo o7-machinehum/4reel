@@ -200,7 +200,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/01f2a883-d296-4bfb-b3ac-4a863d25246a")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -785,7 +785,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/9a208a29-3a26-4860-be8a-86ac4ac6e917")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -1035,7 +1035,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/e73e6a3b-a38f-4623-81a9-b35c41d7f4de")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -1490,7 +1490,7 @@
 		(property ki_fp_filters "DIP* SOIC* R*Array*Concave* R*Array*Convex* MSOP*")
 		(path "/2e5345b7-c8ad-41a6-98c9-624c7056843c")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -1895,7 +1895,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/02d67648-df2d-4247-9563-96b0df8173ec")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -2902,7 +2902,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/4fe3abe6-af2c-4e4f-9265-8eb1fe468dc2")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -3298,7 +3298,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/31299009-d829-4a83-b94a-196b9f694b97")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -3607,7 +3607,7 @@
 		(property ki_fp_filters "DIP* SOIC* R*Array*Concave* R*Array*Convex* MSOP*")
 		(path "/0cc197a3-0764-4911-b110-d6529f45998d")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -3866,7 +3866,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/61c5e668-ddd9-4284-9ee5-1e418e3ee55b")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -5735,7 +5735,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/9fae998f-2669-405d-a861-98946f2fcf04")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -7843,7 +7843,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/6583abd7-6633-44bc-b00b-e7b3d19a4578")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -9872,7 +9872,7 @@
 		)
 		(path "/0d85737b-769c-4a98-a372-bf41ce421e5d")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -11296,7 +11296,7 @@
 		)
 		(path "/ed7c79b2-1b63-4282-bfb3-7b13c5c5a796")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -11589,7 +11589,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/13e44c1c-db71-4bba-9d8a-27a09c04ed99")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -12053,7 +12053,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/64169fa8-f0fd-40c8-8943-aa06e633bd7d")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -12345,7 +12345,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/c0a89053-b65a-4e5b-91ba-9b338bc52e6e")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -13582,7 +13582,7 @@
 		(property ki_fp_filters "RJ45*Hanrun*HR911105A*")
 		(path "/70757c6e-aebd-4a1f-92ea-f6dfb46fda39")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -14840,7 +14840,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/a07c8db5-b223-4c34-846d-00d9e597e9d3")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -23879,7 +23879,7 @@
 		(property ki_fp_filters "USB*C*Receptacle*")
 		(path "/c077fadc-dd6d-412f-8e96-fd9f976723dd")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -24843,7 +24843,7 @@
 		(property ki_fp_filters "Texas*DRT*")
 		(path "/272e6ac8-e754-4f83-828b-9fb834576eaa")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -25124,7 +25124,7 @@
 		(property ki_fp_filters "microSD*")
 		(path "/c97305fb-20f3-4ffb-9a02-2885b375bff4")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")
@@ -26090,7 +26090,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/eae3714d-d6ff-41e9-b8f8-afb1e4f20aaa")
 		(sheetname "/")
-		(sheetfile "wingcam_ee.kicad_sch")
+		(sheetfile "4reel_ee.kicad_sch")
 		(units
 			(unit
 				(name "A")

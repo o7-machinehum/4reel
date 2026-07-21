@@ -4293,7 +4293,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "wingcam:Camera_Lens_20mm"
+		(symbol "4reel:Camera_Lens_20mm"
 			(pin_names
 				(offset 1.016)
 			)
@@ -6457,7 +6457,7 @@
 			(uuid "83fac106-071f-42d5-a959-1877d513402a")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R29")
 					(unit 1)
@@ -6533,7 +6533,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "H2")
 					(unit 1)
@@ -6612,7 +6612,7 @@
 			(uuid "99ce398b-4a99-4101-806b-313842727756")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR093")
 					(unit 1)
@@ -6723,7 +6723,7 @@
 			(uuid "a6fb1d55-cd9b-487f-b15b-32d183432114")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "RN1")
 					(unit 1)
@@ -6732,7 +6732,7 @@
 		)
 	)
 	(symbol
-		(lib_id "wingcam:Camera_Lens_20mm")
+		(lib_id "4reel:Camera_Lens_20mm")
 		(at 172.72 30.48 0)
 		(unit 1)
 		(body_style 1)
@@ -6846,7 +6846,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "MP1")
 					(unit 1)
@@ -6926,7 +6926,7 @@
 			(uuid "ceb0cad5-3aeb-452e-a63a-a7b1d5d8676a")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR088")
 					(unit 1)
@@ -7008,7 +7008,7 @@
 			(uuid "62b8586b-1d1d-44d4-9c18-36cd6b9fb511")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R28")
 					(unit 1)
@@ -7091,7 +7091,7 @@
 			(uuid "f49b458b-febc-4965-85ac-4a3932afd084")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "U5")
 					(unit 1)
@@ -7202,7 +7202,7 @@
 			(uuid "33ef1958-a1d5-43c4-b3fe-1b9957bb342d")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "RN2")
 					(unit 1)
@@ -7281,7 +7281,7 @@
 			(uuid "07882f76-26af-46d1-b85f-809d05625e75")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R14")
 					(unit 1)
@@ -7359,7 +7359,7 @@
 			(uuid "6057c622-aaa8-448e-a8f4-7caefb5c9f2a")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR01")
 					(unit 1)
@@ -7437,7 +7437,7 @@
 			(uuid "48359bfa-1cc6-4b06-bfe9-2b041543dbd6")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR056")
 					(unit 1)
@@ -7513,7 +7513,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "H4")
 					(unit 1)
@@ -7589,7 +7589,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "H3")
 					(unit 1)
@@ -7671,7 +7671,7 @@
 			(uuid "f56dd90e-42ec-4c4d-a5ef-1d24223bfd4f")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R27")
 					(unit 1)
@@ -7752,7 +7752,7 @@
 			(uuid "c81db2a1-0ab5-4bd3-966d-5828856ad800")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R31")
 					(unit 1)
@@ -7831,7 +7831,7 @@
 			(uuid "15f61a27-0098-495b-99b7-957d60d2d66b")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR062")
 					(unit 1)
@@ -7945,7 +7945,7 @@
 			(uuid "644cb65f-0967-4b8a-9737-3db881a57c19")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "J3")
 					(unit 1)
@@ -8023,7 +8023,7 @@
 			(uuid "aba57144-9bf5-4687-a0a1-5d4af4cc01fd")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR091")
 					(unit 1)
@@ -8100,7 +8100,7 @@
 			(uuid "4ffbc48d-b732-43ba-9eba-93845d969565")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR0127")
 					(unit 1)
@@ -8176,7 +8176,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "H1")
 					(unit 1)
@@ -8253,7 +8253,7 @@
 			(uuid "79a505ff-df6d-4f89-851d-99b931f6e2e8")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR089")
 					(unit 1)
@@ -8336,7 +8336,7 @@
 			(uuid "5086cd91-5e49-4004-a4a7-480a7045383f")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R26")
 					(unit 1)
@@ -8418,7 +8418,7 @@
 			(uuid "6c238093-2217-4bba-9144-3afd4d6dfbba")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "C50")
 					(unit 1)
@@ -8496,7 +8496,7 @@
 			(uuid "fc65a142-5706-450d-98ec-8d53a561eb99")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR071")
 					(unit 1)
@@ -8575,7 +8575,7 @@
 			(uuid "2d0a7c79-5167-4845-92c7-aa1fb2522104")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR072")
 					(unit 1)
@@ -8654,7 +8654,7 @@
 			(uuid "d76d3eb5-75d2-49be-bd07-95fddd069100")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR0128")
 					(unit 1)
@@ -8731,7 +8731,7 @@
 			(uuid "ead926ef-5cf1-486b-ae74-2b998fc5c388")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR092")
 					(unit 1)
@@ -8810,7 +8810,7 @@
 			(uuid "1ba99659-c6c1-4f56-908f-7eb0640dc18a")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR073")
 					(unit 1)
@@ -8889,7 +8889,7 @@
 			(uuid "586aa43d-ba3c-4a39-9845-6257ed274394")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR0100")
 					(unit 1)
@@ -9025,7 +9025,7 @@
 			(uuid "090f4094-6d65-4cb3-a5e4-4aae65275be9")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "J1")
 					(unit 1)
@@ -9104,7 +9104,7 @@
 			(uuid "e6e94336-9de6-4c73-8b60-f6045f644b89")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR041")
 					(unit 1)
@@ -9184,7 +9184,7 @@
 			(uuid "19f03aa0-2154-4952-8d46-38654cd0b424")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R15")
 					(unit 1)
@@ -9303,7 +9303,7 @@
 			(uuid "1c7b91a4-4342-4186-94a1-d3d910938933")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "J2")
 					(unit 1)
@@ -9380,7 +9380,7 @@
 			(uuid "0cacbae3-e335-4196-81b0-56832dd52f36")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR070")
 					(unit 1)
@@ -9461,7 +9461,7 @@
 			(uuid "09340870-f77f-46e0-9f54-bc3083342f5c")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "R30")
 					(unit 1)
@@ -9546,7 +9546,7 @@
 			(uuid "2c845ba5-526e-4293-a544-c773591ada3f")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "J4")
 					(unit 1)
@@ -9625,7 +9625,7 @@
 			(uuid "99aa7a7d-df83-450d-8eee-0305cfe67b54")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR02")
 					(unit 1)
@@ -9634,7 +9634,7 @@
 		)
 	)
 	(symbol
-		(lib_id "wingcam:Camera_Lens_20mm")
+		(lib_id "4reel:Camera_Lens_20mm")
 		(at 204.47 30.48 0)
 		(unit 1)
 		(body_style 1)
@@ -9748,7 +9748,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "MP2")
 					(unit 1)
@@ -9825,7 +9825,7 @@
 			(uuid "e7bdbe42-1cdf-4671-ae94-2256a7a442ed")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR099")
 					(unit 1)
@@ -9903,7 +9903,7 @@
 			(uuid "cee87e80-e533-49a1-97a9-e241f5d9728f")
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(reference "#PWR090")
 					(unit 1)
@@ -10130,7 +10130,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "2")
 				)
@@ -10236,7 +10236,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "4")
 				)
@@ -10292,7 +10292,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "5")
 				)
@@ -10348,7 +10348,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "6")
 				)
@@ -10454,7 +10454,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "7")
 				)
@@ -10500,7 +10500,7 @@
 			)
 		)
 		(instances
-			(project "wingcam_ee"
+			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc"
 					(page "3")
 				)
