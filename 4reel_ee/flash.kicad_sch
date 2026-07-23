@@ -161,7 +161,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Memory_Flash:W25Q16JVSS"
+		(symbol "Memory_Flash:W25Q32JVZP"
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -177,7 +177,7 @@
 					)
 				)
 			)
-			(property "Value" "W25Q16JVSS"
+			(property "Value" "W25Q32JVZP"
 				(at 7.62 11.43 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -187,7 +187,7 @@
 					)
 				)
 			)
-			(property "Footprint" "Package_SO:SOIC-8_5.3x5.3mm_P1.27mm"
+			(property "Footprint" "Package_SON:WSON-8-1EP_6x5mm_P1.27mm_EP3.4x4.3mm"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -198,8 +198,8 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.winbond.com/hq/support/documentation/levelOne.jsp?__locale=en&DocNo=DA00-W25Q16JV.1"
-				(at 0 0 0)
+			(property "Datasheet" "http://www.winbond.com/resource-files/w25q32jv%20revg%2003272018%20plus.pdf"
+				(at 0 -2.54 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(hide yes)
@@ -209,7 +209,7 @@
 					)
 				)
 			)
-			(property "Description" "16Mbit / 2MiB Serial Flash Memory, Standard/Dual/Quad SPI, 2.7-3.6V, SOIC-8 (208 mil)"
+			(property "Description" "32Mbit / 4MiB Serial Flash Memory, Standard/Dual/Quad SPI, 2.7-3.6V, WSON-8"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -231,7 +231,7 @@
 					)
 				)
 			)
-			(property "ki_fp_filters" "*SOIC*5.3x5.3mm*P1.27mm*"
+			(property "ki_fp_filters" "WSON*1EP*6x5mm*P1.27mm*"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -242,7 +242,7 @@
 					)
 				)
 			)
-			(symbol "W25Q16JVSS_0_1"
+			(symbol "W25Q32JVZP_0_1"
 				(rectangle
 					(start -7.62 10.16)
 					(end 10.16 -10.16)
@@ -255,7 +255,7 @@
 					)
 				)
 			)
-			(symbol "W25Q16JVSS_1_1"
+			(symbol "W25Q32JVZP_1_1"
 				(pin input line
 					(at -10.16 7.62 0)
 					(length 2.54)
@@ -393,6 +393,24 @@
 						)
 					)
 					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -12.7 90)
+					(length 2.54)
+					(name "EP"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1012,7 +1030,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Memory_Flash:W25Q16JVSS")
+		(lib_id "Memory_Flash:W25Q32JVZP")
 		(at 151.13 92.71 0)
 		(unit 1)
 		(body_style 1)
@@ -1022,7 +1040,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "64f60ccc-9014-4dac-9b99-2133285868cb")
+		(uuid "8b6b2b3b-362e-4e5a-aaa7-d4459db38143")
 		(property "Reference" "U7"
 			(at 162.56 91.4399 0)
 			(show_name no)
@@ -1034,7 +1052,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "W25Q16JVSS"
+		(property "Value" "W25Q32JVZP"
 			(at 162.56 93.9799 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1045,7 +1063,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_SO:SOIC-8_5.3x5.3mm_P1.27mm"
+		(property "Footprint" "Package_SON:WSON-8-1EP_6x5mm_P1.27mm_EP3.4x4.3mm"
 			(at 151.13 92.71 0)
 			(hide yes)
 			(show_name no)
@@ -1056,7 +1074,18 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.winbond.com/hq/support/documentation/levelOne.jsp?__locale=en&DocNo=DA00-W25Q16JV.1"
+		(property "Datasheet" "http://www.winbond.com/resource-files/w25q32jv%20revg%2003272018%20plus.pdf"
+			(at 151.13 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "32Mbit / 4MiB Serial Flash Memory, Standard/Dual/Quad SPI, 2.7-3.6V, WSON-8"
 			(at 151.13 92.71 0)
 			(hide yes)
 			(show_name no)
@@ -1067,7 +1096,7 @@
 				)
 			)
 		)
-		(property "Description" "16Mbit / 2MiB Serial Flash Memory, Standard/Dual/Quad SPI, 2.7-3.6V, SOIC-8 (208 mil)"
+		(property "MPN" "W25Q32JVZPIQ"
 			(at 151.13 92.71 0)
 			(hide yes)
 			(show_name no)
@@ -1077,30 +1106,33 @@
 					(size 1.27 1.27)
 				)
 			)
-		)
-		(pin "3"
-			(uuid "bd3dfbd5-64ba-44df-970f-a71919d5f25e")
-		)
-		(pin "2"
-			(uuid "d2bf859c-a49f-4de9-ba50-cee3522142f2")
-		)
-		(pin "1"
-			(uuid "a0deb5e2-e1ad-482f-91ae-430e820029de")
-		)
-		(pin "4"
-			(uuid "43228ccf-ddbf-452d-81c3-69c6c84425a8")
-		)
-		(pin "6"
-			(uuid "86c3d7a4-1eed-4579-8069-f0409defa3b7")
-		)
-		(pin "5"
-			(uuid "1992471f-65d1-44fe-8a70-77159e59f079")
 		)
 		(pin "7"
-			(uuid "4c486d15-88b6-4201-8677-571d30fc0980")
+			(uuid "fa2c8aff-c552-4ac7-a84c-d7f76c3c275b")
+		)
+		(pin "2"
+			(uuid "141fc803-1937-4078-ad23-d4a4208702bc")
+		)
+		(pin "1"
+			(uuid "8e32c791-98a7-48cf-b4f7-245f454c498a")
+		)
+		(pin "5"
+			(uuid "02f70859-0af3-4724-b432-d3e6a2ee32b0")
+		)
+		(pin "4"
+			(uuid "4c62bd48-0c32-49ac-ad90-55ec3f0c0209")
 		)
 		(pin "8"
-			(uuid "74cc0b78-a466-4bc2-8de3-47f5f5f2f1b5")
+			(uuid "a0bcd31f-f75a-4fc3-b7ac-4d274b9208d5")
+		)
+		(pin "9"
+			(uuid "fb62a790-e7ec-47d6-84c4-cfb0b541c450")
+		)
+		(pin "6"
+			(uuid "e300eaf0-6f94-4077-adc7-788cf6d8352b")
+		)
+		(pin "3"
+			(uuid "18491508-cba6-464c-9a36-421f26a1f41f")
 		)
 		(instances
 			(project "4reel_ee"
