@@ -2251,6 +2251,12 @@
 		)
 	)
 	(junction
+		(at 118.11 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "000407c6-5ff3-4779-b86e-5d36746132bf")
+	)
+	(junction
 		(at 80.01 55.88)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -2796,6 +2802,16 @@
 	)
 	(wire
 		(pts
+			(xy 118.11 72.39) (xy 118.11 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "505922a5-bbe9-4146-8f55-caae855cf754")
+	)
+	(wire
+		(pts
 			(xy 100.33 63.5) (xy 100.33 64.77)
 		)
 		(stroke
@@ -3116,7 +3132,7 @@
 	)
 	(wire
 		(pts
-			(xy 111.76 74.93) (xy 129.54 74.93)
+			(xy 111.76 74.93) (xy 118.11 74.93)
 		)
 		(stroke
 			(width 0)
@@ -3396,6 +3412,16 @@
 	)
 	(wire
 		(pts
+			(xy 118.11 74.93) (xy 129.54 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e8f8b7fe-4a50-4373-832e-ddac49f82e20")
+	)
+	(wire
+		(pts
 			(xy 100.33 82.55) (xy 100.33 83.82)
 		)
 		(stroke
@@ -3626,6 +3652,17 @@
 			(justify left)
 		)
 		(uuid "6bda823f-b025-4047-bced-8689610a836a")
+	)
+	(hierarchical_label "DVDD"
+		(shape bidirectional)
+		(at 118.11 72.39 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c265d29d-ae34-48b3-9dde-9963c530ffac")
 	)
 	(hierarchical_label "SID"
 		(shape bidirectional)

@@ -7219,6 +7219,16 @@
 	)
 	(wire
 		(pts
+			(xy 43.18 57.15) (xy 52.07 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1a957175-f688-4983-ae8d-1ff74c892ab3")
+	)
+	(wire
+		(pts
 			(xy 195.58 148.59) (xy 195.58 151.13)
 		)
 		(stroke
@@ -8689,6 +8699,26 @@
 	)
 	(wire
 		(pts
+			(xy 43.18 59.69) (xy 52.07 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2f63568-3c83-47f6-a162-f9e4e8a6322b")
+	)
+	(wire
+		(pts
+			(xy 43.18 74.93) (xy 52.07 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b51ca223-f3f2-42e2-8055-13562e19d453")
+	)
+	(wire
+		(pts
 			(xy 215.9 132.08) (xy 205.74 132.08)
 		)
 		(stroke
@@ -9581,7 +9611,7 @@
 		)
 		(uuid "7880accf-06ef-40c2-88e5-e9b2a3fe6762")
 	)
-	(hierarchical_label "VSYNC2"
+	(hierarchical_label "VSYNC"
 		(shape bidirectional)
 		(at 43.18 69.85 180)
 		(effects
@@ -9625,17 +9655,6 @@
 		)
 		(uuid "8e341957-5f98-4cdc-8d5e-762638f459a3")
 	)
-	(hierarchical_label "XSHUTDOWN1"
-		(shape bidirectional)
-		(at 68.58 121.92 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "ab7e3546-e015-4cb2-9f23-7b8ea8de9143")
-	)
 	(hierarchical_label "STROBE2"
 		(shape bidirectional)
 		(at 43.18 72.39 180)
@@ -9649,23 +9668,23 @@
 	)
 	(hierarchical_label "LED_ACT"
 		(shape bidirectional)
-		(at 57.15 111.76 0)
+		(at 43.18 59.69 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "c278b188-2de6-43fc-9c18-d423be93193e")
 	)
 	(hierarchical_label "LED100"
 		(shape bidirectional)
-		(at 57.15 114.3 0)
+		(at 43.18 74.93 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "c40b6ac9-2869-4a0d-92fe-5e8ce290f6a3")
 	)
@@ -9704,7 +9723,7 @@
 	)
 	(hierarchical_label "STROBE1"
 		(shape bidirectional)
-		(at 68.58 127 180)
+		(at 43.18 57.15 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9713,7 +9732,7 @@
 		)
 		(uuid "dc65fa1b-b63f-4184-bb6f-54bc828653c8")
 	)
-	(hierarchical_label "XSHUTDOWN2"
+	(hierarchical_label "XSHUTDOWN"
 		(shape bidirectional)
 		(at 43.18 62.23 180)
 		(effects
@@ -9723,17 +9742,6 @@
 			(justify right)
 		)
 		(uuid "e9eceb49-7eeb-4feb-ac91-a305b2f1eaeb")
-	)
-	(hierarchical_label "VSYNC1"
-		(shape bidirectional)
-		(at 68.58 124.46 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "f26fc7b0-1f57-45b8-9058-fc291de7b5d9")
 	)
 	(symbol
 		(lib_id "Device:C_Small")
