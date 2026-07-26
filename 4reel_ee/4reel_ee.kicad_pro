@@ -92,6 +92,18 @@
         [
           "hole_clearance|131380000|108065000|754533c3-b0b4-42b7-8542-61e11c813d79|395bb666-b16f-42ce-9385-6e9fbc1d8cb7",
           ""
+        ],
+        [
+          "items_not_allowed|144400000|106100000|ecf05211-0fec-4947-bbde-22f8ebe12fb0|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "items_not_allowed|151225000|108875000|7d2751e7-7d39-48e1-afbd-5049e7b5704c|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "items_not_allowed|151225000|113025000|ac75e868-9d50-4d11-87bb-1884ccb3692a|00000000-0000-0000-0000-000000000000",
+          ""
         ]
       ],
       "meta": {
@@ -699,7 +711,7 @@
           "group_by": false,
           "label": "Datasheet",
           "name": "Datasheet",
-          "show": true
+          "show": false
         },
         {
           "group_by": false,
@@ -717,7 +729,7 @@
           "group_by": false,
           "label": "MPN",
           "name": "MPN",
-          "show": false
+          "show": true
         },
         {
           "group_by": false,

@@ -4012,6 +4012,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 125.73 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "fa1fd890-4953-4538-b16f-80124dd00361")
 		)
@@ -4171,6 +4182,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 90.17 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 90.17 41.91 0)
 			(hide yes)
 			(show_name no)
@@ -4351,6 +4373,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 109.22 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 109.22 142.24 0)
 			(hide yes)
 			(show_name no)
@@ -4713,6 +4746,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 120.65 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "dd769bcf-6f9f-4fe5-a2cf-f3b2f3c2f3c4")
 		)
@@ -5048,6 +5092,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 111.76 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "50371835-3976-4b11-ab64-84563cb45bda")
 		)
@@ -5216,6 +5271,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 99.06 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "6efaf376-5c76-4821-8afa-a4954261a504")
 		)
@@ -5291,6 +5357,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 124.46 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KP5VPNC"
 			(at 124.46 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -5387,6 +5464,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 90.17 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "55e589ab-7b97-4df9-9cdd-b40fbac34abf")
 		)
@@ -5473,6 +5561,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 100.33 41.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "6ef0d801-26a6-4cb3-8a72-62d0f9d3151c")
 		)
@@ -5548,6 +5647,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 109.22 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 109.22 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -5893,6 +6003,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 100.33 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "e2130f64-dd74-4d3f-9370-23244bdab843")
 		)
@@ -6051,6 +6172,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 80.01 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 80.01 60.96 0)
 			(hide yes)
 			(show_name no)
@@ -6407,6 +6539,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 90.17 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "3ef12f31-a5ce-4a6d-a399-7d656839bb9b")
 		)
@@ -6576,6 +6719,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 100.33 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "7b3df184-141f-4ba4-87fa-e0e8267468ce")
 		)
@@ -6735,6 +6889,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 111.76 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KP5VPNC"
 			(at 111.76 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -7750,6 +7915,17 @@
 				)
 			)
 		)
+		(property "MPN" "RC0402FR-070RL"
+			(at 116.84 111.76 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "1922ce6b-b6a1-4e90-971f-d5df877bc3e9")
 		)
@@ -7836,6 +8012,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 228.6 73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "006772fb-adda-4319-ba12-3137dca4c9f8")
 		)
@@ -7912,6 +8099,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 111.76 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KP5VPNC"
 			(at 111.76 60.96 0)
 			(hide yes)
 			(show_name no)

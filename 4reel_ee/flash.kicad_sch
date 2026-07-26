@@ -1014,6 +1014,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 154.94 74.93 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "b4c118c4-a03e-4702-8212-87ac62c47bd6")
 		)

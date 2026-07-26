@@ -3431,6 +3431,17 @@
 				)
 			)
 		)
+		(property "MPN" "TLV73328PDBVR"
+			(at 246.38 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "4"
 			(uuid "dd2abe05-2602-41d6-9a9d-d2a4addfeb68")
 		)
@@ -3679,6 +3690,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 29.21 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "1f21b53d-f57c-4cf3-b308-71175a84677d")
 		)
@@ -3839,6 +3861,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 140.97 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "eeeb0cf0-dfeb-44e1-aa10-2fd46890e654")
 		)
@@ -3920,6 +3953,17 @@
 				)
 			)
 		)
+		(property "MPN" "GCM1555C1H221JA16D"
+			(at 124.46 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "64152a1f-9bc5-4b31-a399-4daca595dc4c")
 		)
@@ -3991,6 +4035,17 @@
 		)
 		(property "Description" "Resistor, small symbol"
 			(at 59.69 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "RC0402FR-07100KL"
+			(at 59.69 132.08 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4082,6 +4137,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 140.97 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "3b27b45d-4806-4695-9796-793f19fc8ad1")
 		)
@@ -4154,6 +4220,17 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 128.27 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "RC0402FR-0740K2L"
 			(at 128.27 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -4314,6 +4391,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 187.96 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 187.96 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -4562,6 +4650,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 232.41 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "1c46e30c-2562-4b47-abe8-f584d7e0c8b5")
 		)
@@ -4712,6 +4811,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 213.36 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "C0402C105K9PACTU"
 			(at 213.36 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -4883,6 +4993,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 151.13 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "91238e8d-5fb2-4328-85d6-999ce338ecfa")
 		)
@@ -4955,6 +5076,17 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 128.27 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "RC0402FR-07200KL"
 			(at 128.27 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -5047,6 +5179,17 @@
 				)
 			)
 		)
+		(property "MPN" "RC0402FR-0747KL"
+			(at 128.27 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "634c85ec-fc73-47b5-9b77-0446056ad340")
 		)
@@ -5119,6 +5262,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 39.37 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "GRM155R60J106ME05D"
 			(at 39.37 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -5369,6 +5523,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 151.13 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "980c455a-5dbf-4810-8c77-c64c17bde571")
 		)
@@ -5440,6 +5605,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 64.77 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KP5VPNC"
 			(at 64.77 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -5522,6 +5698,17 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 128.27 107.95 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "RC0402FR-07100KL"
 			(at 128.27 107.95 0)
 			(hide yes)
 			(show_name no)
@@ -5849,6 +6036,17 @@
 				)
 			)
 		)
+		(property "MPN" "CL05B104KP5VPNC"
+			(at 64.77 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "9b452166-bcdf-47e9-ac98-2c60ee478ebb")
 		)
@@ -6008,6 +6206,17 @@
 				)
 			)
 		)
+		(property "MPN" "RC0402FR-07200KL"
+			(at 59.69 93.98 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "30f273d6-891a-42ea-97e3-47d802adcddc")
 		)
@@ -6090,6 +6299,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 49.53 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "cb081ee0-4ad9-4622-8f98-246ca56ee0f5")
 		)
@@ -6162,6 +6382,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 151.13 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "GRM155R60J106ME05D"
 			(at 151.13 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -6330,6 +6561,17 @@
 				)
 			)
 		)
+		(property "MPN" "RC0402FR-0710KL"
+			(at 59.69 113.03 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "9f284af6-854d-4eba-8f10-c34351e62373")
 		)
@@ -6412,6 +6654,17 @@
 				)
 			)
 		)
+		(property "MPN" "RC0402FR-079K1L"
+			(at 128.27 86.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "d22603c7-08b8-4809-8dc5-745cd5226ae8")
 		)
@@ -6459,7 +6712,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 113.03 73.66 0)
 			(hide yes)
 			(show_name no)
@@ -6483,6 +6736,17 @@
 		)
 		(property "Description" "Inductor, small symbol"
 			(at 113.03 73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "DFE252012P-1R5M=P2"
+			(at 113.03 73.66 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6731,6 +6995,17 @@
 				)
 			)
 		)
+		(property "MPN" "C0402C105K9PACTU"
+			(at 257.81 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "3f0b7f38-cb5c-40ba-8834-b4fb476b3186")
 		)
@@ -6857,7 +7132,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 113.03 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -6881,6 +7156,17 @@
 		)
 		(property "Description" "Inductor, small symbol"
 			(at 113.03 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "DFE252012P-1R5M=P2"
+			(at 113.03 116.84 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6937,7 +7223,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_1008_2520Metric"
 			(at 113.03 95.25 0)
 			(hide yes)
 			(show_name no)
@@ -6961,6 +7247,17 @@
 		)
 		(property "Description" "Inductor, small symbol"
 			(at 113.03 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "DFE252012P-1R5M=P2"
+			(at 113.03 95.25 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7052,6 +7349,17 @@
 				)
 			)
 		)
+		(property "MPN" "GRM155R60J106ME05D"
+			(at 59.69 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "4cae4d38-209a-4ce6-b3de-c81770484442")
 		)
@@ -7123,6 +7431,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 64.77 137.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KP5VPNC"
 			(at 64.77 137.16 0)
 			(hide yes)
 			(show_name no)
@@ -7293,6 +7612,17 @@
 				)
 			)
 		)
+		(property "MPN" "GCM1555C1H221JA16D"
+			(at 124.46 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "58e97596-2764-4853-8771-8f53206a8f64")
 		)
@@ -7365,6 +7695,17 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 128.27 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "RC0402FR-07100KL"
 			(at 128.27 129.54 0)
 			(hide yes)
 			(show_name no)
@@ -7456,6 +7797,17 @@
 				)
 			)
 		)
+		(property "MPN" "TLV73312PDBV"
+			(at 201.93 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "7ccc5557-ddc7-4d9f-9573-3d8e13003d2e")
 		)
@@ -7536,6 +7888,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 124.46 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "GCM1555C1H221JA16D"
 			(at 124.46 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -7695,6 +8058,17 @@
 			)
 		)
 		(property "Description" ""
+			(at 69.85 69.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "EA3036C"
 			(at 69.85 69.85 0)
 			(hide yes)
 			(show_name no)
@@ -7912,6 +8286,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 140.97 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "GRM155R60J106ME05D"
 			(at 140.97 120.65 0)
 			(hide yes)
 			(show_name no)
