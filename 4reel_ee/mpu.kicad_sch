@@ -8059,6 +8059,16 @@
 	)
 	(wire
 		(pts
+			(xy 19.05 71.12) (xy 19.05 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6c77b057-bfbd-4a8e-9f3b-58c30568853e")
+	)
+	(wire
+		(pts
 			(xy 175.26 21.59) (xy 179.07 21.59)
 		)
 		(stroke
@@ -8246,6 +8256,16 @@
 			(type default)
 		)
 		(uuid "7ef2331c-f88c-47b1-a50d-3ceb46cef5a2")
+	)
+	(wire
+		(pts
+			(xy 16.51 71.12) (xy 16.51 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7f6d063f-39dc-4788-b005-c8e5c18f8743")
 	)
 	(wire
 		(pts
@@ -8536,6 +8556,16 @@
 			(type default)
 		)
 		(uuid "9a962fc3-02ed-4c08-a60a-288a141d1a44")
+	)
+	(wire
+		(pts
+			(xy 16.51 92.71) (xy 16.51 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9b2b4c31-66bb-475e-a689-89c4221f3b1d")
 	)
 	(wire
 		(pts
@@ -9109,6 +9139,16 @@
 	)
 	(wire
 		(pts
+			(xy 19.05 92.71) (xy 19.05 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f4ccd578-d526-45a4-857d-517b68cadfd4")
+	)
+	(wire
+		(pts
 			(xy 102.87 91.44) (xy 111.76 91.44)
 		)
 		(stroke
@@ -9176,6 +9216,16 @@
 			(type default)
 		)
 		(uuid "fc8ca27a-466b-4a0b-bdf9-56a5f7f469d5")
+	)
+	(label "I2C4.SDA"
+		(at 19.05 73.66 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "011ae7ed-8011-479f-bd41-6b9d84a477d3")
 	)
 	(label "MIPI1.D1P"
 		(at 198.12 66.04 180)
@@ -9537,6 +9587,16 @@
 		)
 		(uuid "cc5a57f7-3e2f-4ba2-8c92-4c9e699a9ddc")
 	)
+	(label "I2C3.SDA"
+		(at 19.05 95.25 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "e676f547-a8f4-4f07-af60-982d51dc1028")
+	)
 	(label "FSPI.~{CS}"
 		(at 172.72 45.72 180)
 		(effects
@@ -9567,6 +9627,16 @@
 		)
 		(uuid "f21c6f61-31b8-4609-9a29-11a7d639cf7e")
 	)
+	(label "I2C4.SCL"
+		(at 16.51 73.66 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "f944228c-1a0f-49b2-a5d2-7b91e6753438")
+	)
 	(label "MIPI2.D1N"
 		(at 198.12 83.82 180)
 		(effects
@@ -9586,6 +9656,16 @@
 			(justify left bottom)
 		)
 		(uuid "f96d84c0-760d-446c-800d-1df827b79e61")
+	)
+	(label "I2C3.SCL"
+		(at 16.51 95.25 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "fce7d545-c9a3-4a61-9332-386cd9b88654")
 	)
 	(hierarchical_label "EPHY{EPHY}"
 		(shape bidirectional)
@@ -9930,6 +10010,85 @@
 			(project "4reel_ee"
 				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc/01971d03-523c-4f9d-a771-501f54aedf5c"
 					(reference "#PWR085")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 19.05 92.71 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0a4a0191-3b88-4089-84bd-9debe3586c0c")
+		(property "Reference" "TP6"
+			(at 19.05 87.884 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "TestPoint"
+			(at 21.59 90.6779 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_1.0x1.0mm"
+			(at 24.13 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 24.13 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 19.05 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ad862d4c-eb72-464c-b0eb-99ab92010f4b")
+		)
+		(instances
+			(project "4reel_ee"
+				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc/01971d03-523c-4f9d-a771-501f54aedf5c"
+					(reference "TP6")
 					(unit 1)
 				)
 			)
@@ -10591,6 +10750,243 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 16.51 71.12 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "40d06ebc-0948-42d4-a4c0-d3bc1af7dbe5")
+		(property "Reference" "TP3"
+			(at 16.51 66.294 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "TestPoint"
+			(at 19.05 69.0879 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_1.0x1.0mm"
+			(at 21.59 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 21.59 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 16.51 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "082f5bba-7656-4fc9-929b-6a17e2ec2b33")
+		)
+		(instances
+			(project "4reel_ee"
+				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc/01971d03-523c-4f9d-a771-501f54aedf5c"
+					(reference "TP3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 16.51 92.71 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "41007e8c-73db-4958-879f-7843fe6fc79b")
+		(property "Reference" "TP5"
+			(at 16.51 87.884 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "TestPoint"
+			(at 19.05 90.6779 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_1.0x1.0mm"
+			(at 21.59 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 21.59 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 16.51 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "46c82bfc-92c4-4c01-b296-0000f229d9a3")
+		)
+		(instances
+			(project "4reel_ee"
+				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc/01971d03-523c-4f9d-a771-501f54aedf5c"
+					(reference "TP5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 19.05 71.12 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "48a85ba4-9e05-4c21-b653-89b040f4f72f")
+		(property "Reference" "TP4"
+			(at 19.05 66.294 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "TestPoint"
+			(at 21.59 69.0879 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_1.0x1.0mm"
+			(at 24.13 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 24.13 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 19.05 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "702ec823-e06d-4d51-a551-4a170527073e")
+		)
+		(instances
+			(project "4reel_ee"
+				(path "/6672ba93-cf23-43d1-a630-d60a05df29bc/01971d03-523c-4f9d-a771-501f54aedf5c"
+					(reference "TP4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:LED")
 		(at 36.83 115.57 90)
 		(unit 1)
@@ -11010,7 +11406,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103G"
+		(property "MPN" "RV1103BG3"
 			(at 118.11 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -11824,7 +12220,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103G"
+		(property "MPN" "RV1103BG3"
 			(at 219.71 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -15227,7 +15623,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103G"
+		(property "MPN" "RV1103BG3"
 			(at 77.47 63.5 0)
 			(hide yes)
 			(show_name no)

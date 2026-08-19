@@ -3480,7 +3480,7 @@
 		)
 		(uuid "26fdcf29-0212-4cc5-8854-39580558db28")
 	)
-	(label "DOVDD"
+	(label "DVDD"
 		(at 127 55.88 180)
 		(effects
 			(font
@@ -3550,7 +3550,7 @@
 		)
 		(uuid "684d4753-ba8b-43f5-ad05-1b20ba0c2c43")
 	)
-	(label "DVDD"
+	(label "DOVDD"
 		(at 127 74.93 180)
 		(effects
 			(font
@@ -3653,7 +3653,7 @@
 		)
 		(uuid "6bda823f-b025-4047-bced-8689610a836a")
 	)
-	(hierarchical_label "DVDD"
+	(hierarchical_label "DOVDD"
 		(shape bidirectional)
 		(at 118.11 72.39 90)
 		(effects
@@ -4478,7 +4478,7 @@
 				)
 			)
 		)
-		(property "MPN" "7C-24.000MDB-T"
+		(property "MPN" "SX5M24.000D20F30TNN"
 			(at 213.36 78.74 0)
 			(hide yes)
 			(show_name no)

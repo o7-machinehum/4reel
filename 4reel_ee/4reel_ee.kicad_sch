@@ -10640,7 +10640,7 @@
 				(justify right)
 			)
 		)
-		(pin "DVDD" bidirectional
+		(pin "DOVDD" bidirectional
 			(at 264.16 107.95 0)
 			(uuid "301cf3c4-52a6-43bf-b658-d3a4b5d7c1bf")
 			(effects
@@ -10868,7 +10868,7 @@
 				(justify right)
 			)
 		)
-		(pin "DVDD" bidirectional
+		(pin "DOVDD" bidirectional
 			(at 264.16 133.35 0)
 			(uuid "6aff0156-f021-409e-8e42-49864a645e0c")
 			(effects
