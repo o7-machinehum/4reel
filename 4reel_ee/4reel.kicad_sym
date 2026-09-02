@@ -1958,7 +1958,7 @@
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "U"
-			(at -6.096 21.59 0)
+			(at -21.336 35.814 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2039,8 +2039,8 @@
 		(symbol "RV1103B_1_1"
 			(unit_name "GPIO / Peripherals")
 			(rectangle
-				(start -21.59 33.02)
-				(end 21.59 -33.02)
+				(start -21.59 34.29)
+				(end 21.59 -31.75)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -2050,61 +2050,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 -30.48 0)
-				(length 3.81)
-				(name "PWR_CTRL1"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "1"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 21.59 180)
-				(length 3.81)
-				(name "UART0_TX_M0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "2"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 19.05 180)
-				(length 3.81)
-				(name "UART0_RX_M0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "3"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at -25.4 30.48 0)
+				(at -25.4 10.16 0)
 				(length 3.81)
 				(name "SDMMC1_D1"
 					(effects
@@ -2122,7 +2068,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 27.94 0)
+				(at -25.4 7.62 0)
 				(length 3.81)
 				(name "SDMMC1_D0"
 					(effects
@@ -2140,7 +2086,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 25.4 0)
+				(at -25.4 5.08 0)
 				(length 3.81)
 				(name "SDMMC1_CLK"
 					(effects
@@ -2158,7 +2104,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 22.86 0)
+				(at -25.4 2.54 0)
 				(length 3.81)
 				(name "SDMMC1_CMD"
 					(effects
@@ -2176,7 +2122,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 20.32 0)
+				(at -25.4 0 0)
 				(length 3.81)
 				(name "SDMMC1_D3"
 					(effects
@@ -2194,7 +2140,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 17.78 0)
+				(at -25.4 -2.54 0)
 				(length 3.81)
 				(name "SDMMC1_D2"
 					(effects
@@ -2212,7 +2158,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 16.51 180)
+				(at 50.8 -54.61 180)
 				(length 3.81)
 				(name "UART1_TX_M2"
 					(effects
@@ -2230,7 +2176,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 13.97 180)
+				(at 50.8 -57.15 180)
 				(length 3.81)
 				(name "UART1_RX_M2"
 					(effects
@@ -2248,7 +2194,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 11.43 180)
+				(at 50.8 -59.69 180)
 				(length 3.81)
 				(name "UART2_TX_M1"
 					(effects
@@ -2266,7 +2212,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 8.89 180)
+				(at 50.8 -62.23 180)
 				(length 3.81)
 				(name "UART2_RX_M1"
 					(effects
@@ -2284,7 +2230,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 5.08 180)
+				(at 50.8 -66.04 180)
 				(length 3.81)
 				(name "UART2_RTSN_M1"
 					(effects
@@ -2302,7 +2248,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 2.54 180)
+				(at 50.8 -68.58 180)
 				(length 3.81)
 				(name "UART2_CTSN_M1"
 					(effects
@@ -2320,61 +2266,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 30.48 180)
-				(length 3.81)
-				(name "SARADC_IN0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "23"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 27.94 180)
-				(length 3.81)
-				(name "CAM_CLK0_OUT"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "46"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 25.4 180)
-				(length 3.81)
-				(name "CAM_CLK1_OUT"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "47"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 -1.27 180)
+				(at 50.8 -72.39 180)
 				(length 3.81)
 				(name "PWM0_CH1_M2"
 					(effects
@@ -2392,7 +2284,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at 25.4 -3.81 180)
+				(at 50.8 -74.93 180)
 				(length 3.81)
 				(name "PWM0_CH2_M2"
 					(effects
@@ -2410,7 +2302,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 -2.54 0)
+				(at -25.4 15.24 0)
 				(length 3.81)
 				(name "SDMMC0_DETN"
 					(effects
@@ -2428,7 +2320,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 12.7 0)
+				(at -25.4 30.48 0)
 				(length 3.81)
 				(name "SDMMC0_D1"
 					(effects
@@ -2446,7 +2338,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 10.16 0)
+				(at -25.4 27.94 0)
 				(length 3.81)
 				(name "SDMMC0_D0"
 					(effects
@@ -2464,7 +2356,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 7.62 0)
+				(at -25.4 25.4 0)
 				(length 3.81)
 				(name "SDMMC0_CLK"
 					(effects
@@ -2482,7 +2374,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 5.08 0)
+				(at -25.4 22.86 0)
 				(length 3.81)
 				(name "SDMMC0_CMD"
 					(effects
@@ -2500,7 +2392,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 2.54 0)
+				(at -25.4 20.32 0)
 				(length 3.81)
 				(name "SDMMC0_D3"
 					(effects
@@ -2518,7 +2410,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -25.4 0 0)
+				(at -25.4 17.78 0)
 				(length 3.81)
 				(name "SDMMC0_D2"
 					(effects
@@ -2528,6 +2420,132 @@
 					)
 				)
 				(number "58"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin bidirectional line
+				(at 25.4 2.54 180)
+				(length 3.81)
+				(name "USB_DM"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "60"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin bidirectional line
+				(at 25.4 0 180)
+				(length 3.81)
+				(name "USB_DP"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "61"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin output line
+				(at 25.4 -10.16 180)
+				(length 3.81)
+				(name "ACODEC_LINEOUT"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "64"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin output line
+				(at 25.4 -20.32 180)
+				(length 3.81)
+				(name "ACODEC_VCM"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "65"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 25.4 -12.7 180)
+				(length 3.81)
+				(name "ACODEC_MIC_N"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "67"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 25.4 -17.78 180)
+				(length 3.81)
+				(name "ACODEC_MIC_P"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "68"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin output line
+				(at 25.4 -15.24 180)
+				(length 3.81)
+				(name "ACODEC_MICBIAS"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "69"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -2643,17 +2661,17 @@
 					)
 				)
 			)
-			(pin bidirectional line
-				(at -25.4 -25.4 0)
+			(pin input line
+				(at 25.4 13.97 180)
 				(length 3.81)
-				(name "RTC_32K_OUT"
+				(name "OSC_SOC_XIN"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "85"
+				(number "83"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -2661,53 +2679,17 @@
 					)
 				)
 			)
-			(pin bidirectional line
-				(at 25.4 -6.35 180)
+			(pin output line
+				(at 25.4 30.48 180)
 				(length 3.81)
-				(name "PWM0_CH0_M0"
+				(name "OSC_SOC_XOUT"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "86"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at 25.4 -8.89 180)
-				(length 3.81)
-				(name "PWM0_CH3_M0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "87"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin bidirectional line
-				(at -25.4 -27.94 0)
-				(length 3.81)
-				(name "PWR_CTRL0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "88"
+				(number "84"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -2720,7 +2702,7 @@
 			(unit_name "Analog / High-Speed")
 			(rectangle
 				(start -17.78 24.13)
-				(end 17.78 -30.48)
+				(end 17.78 -41.91)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -2729,8 +2711,62 @@
 					(type background)
 				)
 			)
+			(pin bidirectional line
+				(at -21.59 7.62 0)
+				(length 3.81)
+				(name "FSPI1_CS0n"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "1"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin bidirectional line
+				(at -21.59 12.7 0)
+				(length 3.81)
+				(name "FSPI1_D2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "2"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin bidirectional line
+				(at -21.59 10.16 0)
+				(length 3.81)
+				(name "FSPI1_D3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
 			(pin output line
-				(at -21.59 21.59 0)
+				(at 21.59 -1.27 180)
 				(length 3.81)
 				(name "OSC_RTC_XOUT"
 					(effects
@@ -2748,7 +2784,7 @@
 				)
 			)
 			(pin input line
-				(at -21.59 19.05 0)
+				(at 21.59 1.27 180)
 				(length 3.81)
 				(name "OSC_RTC_XIN"
 					(effects
@@ -2765,8 +2801,26 @@
 					)
 				)
 			)
+			(pin bidirectional line
+				(at 21.59 -20.32 180)
+				(length 3.81)
+				(name "SARADC_IN0"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "23"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
 			(pin passive line
-				(at -21.59 16.51 0)
+				(at 21.59 10.16 180)
 				(length 3.81)
 				(name "FEPHY_REXT"
 					(effects
@@ -2784,7 +2838,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -21.59 13.97 0)
+				(at 21.59 15.24 180)
 				(length 3.81)
 				(name "FEPHY_TXP"
 					(effects
@@ -2802,7 +2856,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -21.59 11.43 0)
+				(at 21.59 12.7 180)
 				(length 3.81)
 				(name "FEPHY_TXN"
 					(effects
@@ -2820,7 +2874,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -21.59 8.89 0)
+				(at 21.59 20.32 180)
 				(length 3.81)
 				(name "FEPHY_RXP"
 					(effects
@@ -2838,7 +2892,7 @@
 				)
 			)
 			(pin bidirectional line
-				(at -21.59 6.35 0)
+				(at 21.59 17.78 180)
 				(length 3.81)
 				(name "FEPHY_RXN"
 					(effects
@@ -3072,16 +3126,16 @@
 				)
 			)
 			(pin bidirectional line
-				(at 21.59 21.59 180)
+				(at -21.59 -38.1 0)
 				(length 3.81)
-				(name "USB_DM"
+				(name "CAM_CLK0_OUT"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "60"
+				(number "46"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3090,16 +3144,16 @@
 				)
 			)
 			(pin bidirectional line
-				(at 21.59 19.05 180)
+				(at -21.59 -35.56 0)
 				(length 3.81)
-				(name "USB_DP"
+				(name "CAM_CLK1_OUT"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "61"
+				(number "47"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3107,17 +3161,17 @@
 					)
 				)
 			)
-			(pin output line
-				(at 21.59 12.7 180)
+			(pin bidirectional line
+				(at -21.59 20.32 0)
 				(length 3.81)
-				(name "ACODEC_LINEOUT"
+				(name "FSPI1_CLK"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "64"
+				(number "85"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3125,17 +3179,17 @@
 					)
 				)
 			)
-			(pin output line
-				(at 21.59 10.16 180)
+			(pin bidirectional line
+				(at -21.59 15.24 0)
 				(length 3.81)
-				(name "ACODEC_VCM"
+				(name "FSPI1_D1"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "65"
+				(number "86"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3143,17 +3197,17 @@
 					)
 				)
 			)
-			(pin input line
-				(at 21.59 7.62 180)
+			(pin bidirectional line
+				(at -21.59 17.78 0)
 				(length 3.81)
-				(name "ACODEC_MIC_N"
+				(name "FSPI1_D0"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "67"
+				(number "87"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3161,71 +3215,17 @@
 					)
 				)
 			)
-			(pin input line
-				(at 21.59 5.08 180)
+			(pin bidirectional line
+				(at 21.59 -26.67 180)
 				(length 3.81)
-				(name "ACODEC_MIC_P"
+				(name "PWR_CTRL0"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "68"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin output line
-				(at 21.59 2.54 180)
-				(length 3.81)
-				(name "ACODEC_MICBIAS"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "69"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin input line
-				(at 21.59 -19.05 180)
-				(length 3.81)
-				(name "OSC_SOC_XIN"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "83"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin output line
-				(at 21.59 -21.59 180)
-				(length 3.81)
-				(name "OSC_SOC_XOUT"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "84"
+				(number "88"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -3237,8 +3237,8 @@
 		(symbol "RV1103B_3_1"
 			(unit_name "Power")
 			(rectangle
-				(start -19.05 26.67)
-				(end 19.05 -26.67)
+				(start -19.05 30.48)
+				(end 19.05 -35.56)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -3248,7 +3248,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 24.13 0)
+				(at 22.86 -16.51 180)
 				(length 3.81)
 				(name "PMUIO0_DVDD33"
 					(effects
@@ -3266,7 +3266,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 21.59 0)
+				(at 22.86 -13.97 180)
 				(length 3.81)
 				(name "RTC_AVDD"
 					(effects
@@ -3284,7 +3284,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 19.05 0)
+				(at 22.86 25.4 180)
 				(length 3.81)
 				(name "DVDD_LOGIC"
 					(effects
@@ -3302,7 +3302,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 16.51 0)
+				(at -22.86 3.81 0)
 				(length 3.81)
 				(name "VCCIO6_DVDD1833"
 					(effects
@@ -3320,7 +3320,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 13.97 0)
+				(at 22.86 -1.27 180)
 				(length 3.81)
 				(name "OTP_AVDD1V8"
 					(effects
@@ -3338,7 +3338,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 11.43 0)
+				(at 22.86 20.32 180)
 				(length 3.81)
 				(name "CPU_NPU_DVDD"
 					(effects
@@ -3356,7 +3356,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 8.89 0)
+				(at 22.86 1.27 180)
 				(length 3.81)
 				(name "FEPHY_AVDD1V8"
 					(effects
@@ -3374,7 +3374,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 6.35 0)
+				(at 22.86 -8.89 180)
 				(length 3.81)
 				(name "FEPHY_AVDD3V3"
 					(effects
@@ -3392,7 +3392,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 3.81 0)
+				(at 22.86 27.94 180)
 				(length 3.81)
 				(name "DVDD_LOGIC"
 					(effects
@@ -3410,7 +3410,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 1.27 0)
+				(at 22.86 6.35 180)
 				(length 3.81)
 				(name "MIPI_AVDD1V8"
 					(effects
@@ -3428,7 +3428,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -1.27 0)
+				(at 22.86 22.86 180)
 				(length 3.81)
 				(name "DVDD_LOGIC"
 					(effects
@@ -3446,7 +3446,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -3.81 0)
+				(at -22.86 -5.08 0)
 				(length 3.81)
 				(name "VCCIO4_DVDD1833"
 					(effects
@@ -3464,7 +3464,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -6.35 0)
+				(at 22.86 -11.43 180)
 				(length 3.81)
 				(name "USB_AVDD3V3"
 					(effects
@@ -3482,7 +3482,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -8.89 0)
+				(at 22.86 8.89 180)
 				(length 3.81)
 				(name "USB_AVDD1V8"
 					(effects
@@ -3500,7 +3500,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 24.13 180)
+				(at 22.86 -24.13 180)
 				(length 3.81)
 				(name "ACODEC_AVSS"
 					(effects
@@ -3518,7 +3518,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -11.43 0)
+				(at 22.86 11.43 180)
 				(length 3.81)
 				(name "ACODEC_AVDD1V8"
 					(effects
@@ -3554,7 +3554,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -16.51 0)
+				(at -22.86 -26.67 0)
 				(length 3.81)
 				(name "DDR_VDDQ"
 					(effects
@@ -3572,7 +3572,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 21.59 180)
+				(at 22.86 -26.67 180)
 				(length 3.81)
 				(name "VSS"
 					(effects
@@ -3590,7 +3590,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -19.05 0)
+				(at -22.86 -29.21 0)
 				(length 3.81)
 				(name "DDR_VDDQ"
 					(effects
@@ -3608,7 +3608,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 19.05 180)
+				(at 22.86 -29.21 180)
 				(length 3.81)
 				(name "VSS"
 					(effects
@@ -3626,7 +3626,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -21.59 0)
+				(at -22.86 -31.75 0)
 				(length 3.81)
 				(name "DDR_VDDQ"
 					(effects
@@ -3644,7 +3644,7 @@
 				)
 			)
 			(pin power_in line
-				(at -22.86 -24.13 0)
+				(at 22.86 3.81 180)
 				(length 3.81)
 				(name "OSC_AVDD1V8"
 					(effects
@@ -3662,7 +3662,7 @@
 				)
 			)
 			(pin power_in line
-				(at 22.86 16.51 180)
+				(at 22.86 -31.75 180)
 				(length 3.81)
 				(name "VSS"
 					(effects
@@ -3671,7 +3671,7 @@
 						)
 					)
 				)
-				(number "EPAD"
+				(number "89"
 					(effects
 						(font
 							(size 1.27 1.27)

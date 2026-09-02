@@ -4591,7 +4591,7 @@
 		)
 		(uuid "787d79e7-0951-44da-a956-91e5700e2156")
 	)
-	(text "RV1103G"
+	(text "RV1103B"
 		(exclude_from_sim no)
 		(at 192.024 72.136 0)
 		(effects
