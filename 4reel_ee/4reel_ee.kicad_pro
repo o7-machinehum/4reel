@@ -78,6 +78,22 @@
       ],
       "drc_exclusions": [
         [
+          "clearance|121365000|92065000|4c01bd0d-eb92-4837-ad3f-842ceff6c764|dcb07d58-d1ba-41df-b430-4f51c3dd289a",
+          ""
+        ],
+        [
+          "clearance|121490000|103160000|77356892-5e4c-4b53-9e7c-94056eec6483|22004ed3-982a-4469-aa9e-6c6216e8737e",
+          ""
+        ],
+        [
+          "clearance|132585000|103035000|284e2f87-bd36-4472-9bd9-f29331550e2d|7f3b70a3-fb95-4525-ba94-0371b9ce748b",
+          ""
+        ],
+        [
+          "clearance|132585000|92065000|a0829c3c-e50d-4dd0-899a-c07ea2335882|6df27b8f-c4fe-4c7e-9c71-a5bc1f99caf1",
+          ""
+        ],
+        [
           "hole_clearance|125280000|108065000|7be5b65c-bb45-449e-8e9f-8f9ba38dddd0|26fb71fc-dd05-4d30-b0be-7cd01bdbbbfb",
           ""
         ],
@@ -91,6 +107,10 @@
         ],
         [
           "hole_clearance|131380000|108065000|754533c3-b0b4-42b7-8542-61e11c813d79|395bb666-b16f-42ce-9385-6e9fbc1d8cb7",
+          ""
+        ],
+        [
+          "silk_over_copper|123748809|107954819|606ff329-f2dd-467f-b930-c16611a86ec3|8e29256e-0713-4523-b67b-7fa1538b67a5",
           ""
         ]
       ],
@@ -566,13 +586,24 @@
         "line_style": 0,
         "name": "100R",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 2,
+        "priority": 3,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.16,
         "tuning_profile": "",
         "via_diameter": 0.4,
         "via_drill": 0.2,
         "wire_width": 6
+      },
+      {
+        "clearance": 0.1,
+        "name": "50R",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 0,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.31,
+        "tuning_profile": "",
+        "via_diameter": 0.4,
+        "via_drill": 0.2
       },
       {
         "bus_width": 12,
@@ -582,7 +613,7 @@
         "line_style": 0,
         "name": "90R",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 1,
+        "priority": 2,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.2,
         "tuning_profile": "",
@@ -594,7 +625,7 @@
         "clearance": 0.1,
         "name": "Smol",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 0,
+        "priority": 1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.2,
         "tuning_profile": "",
@@ -606,7 +637,14 @@
       "version": 5
     },
     "net_colors": null,
-    "netclass_assignments": null,
+    "netclass_assignments": {
+      "Net-(J3-In)": [
+        "50R"
+      ],
+      "Net-(U10-WIFI{slash}BT_ANT)": [
+        "50R"
+      ]
+    },
     "netclass_patterns": [
       {
         "netclass": "100R",
@@ -619,6 +657,10 @@
       {
         "netclass": "100R",
         "pattern": "*MIPI*"
+      },
+      {
+        "netclass": "50R",
+        "pattern": "*SDMMC*"
       }
     ]
   },
@@ -785,18 +827,22 @@
         "D1N"
       ],
       "MMC": [
-        "D1",
-        "D0",
+        "D[0..3]",
         "CLK",
         "CMD",
-        "D3",
-        "D2"
+        "DET"
       ],
       "MMC1": [
         "D[0..3]",
         "CLK",
         "CMD",
         "DET"
+      ],
+      "UART": [
+        "TXD",
+        "RXD",
+        "~{RTS}",
+        "~{CTS}"
       ],
       "USB": [
         "DP",
@@ -843,7 +889,7 @@
         "uuid": "6672ba93-cf23-43d1-a630-d60a05df29bc"
       }
     ],
-    "used_designators": "U3-10,#PWR36-128,Y1-3,C29-75,D1-2,L4-10,R11-34,TP1-6,RN1-3,J1-4,MP1-2,H1-4,FID1-6",
+    "used_designators": "FID1-6,H1-4,MP1-2,J1-4,RN1-4,TP1-6,R11-36,L4-11,D1-2,C29-93,Y1-3,#PWR24,#PWR27,#PWR34,#PWR36-131,#PWR718,U1,U3-10",
     "variants": []
   },
   "sheets": [
@@ -864,16 +910,16 @@
       "OV9281"
     ],
     [
-      "78ce5a33-e646-4a06-ad67-222a3f48274f",
-      "Flash"
-    ],
-    [
       "916b3f1d-dd57-4971-9649-7c62ffd55afc",
       "Accelerometer"
     ],
     [
       "958d5667-49a1-4d73-995f-e31af9191538",
       "OV9282"
+    ],
+    [
+      "ee0cef1d-0923-470d-a5be-a87dd51a5d41",
+      "RTL8723"
     ]
   ],
   "text_variables": {},

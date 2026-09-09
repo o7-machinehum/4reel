@@ -9,5 +9,4 @@
 - Change hole size to M2.2
 - Change SoC to RV1106G3
     - This might need a new PMIC etc
-
-
+- Power distrobution trace thickness

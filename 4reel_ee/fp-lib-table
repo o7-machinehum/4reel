@@ -1,5 +1,7 @@
 (fp_lib_table
 	(version 7)
 	(lib (name "rv1103b") (type "KiCad") (uri "${KIPRJMOD}/rv1103b.pretty") (options "") (descr ""))
+	(lib (name "rv1106") (type "KiCad") (uri "${KIPRJMOD}/rv1106.pretty") (options "") (descr "Rockchip RV1106G2/G3 QFN-128 footprints"))
 	(lib (name "ov9281") (type "KiCad") (uri "${KIPRJMOD}/ov9281.pretty") (options "") (descr ""))
+	(lib (name "KiLib") (type "KiCad") (uri "${KIPRJMOD}/kilib/kilib.pretty") (options "") (descr ""))
 )

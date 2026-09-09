@@ -2275,16 +2275,22 @@
 		(uuid "1492aaa9-af45-481a-b319-d24ad5acd430")
 	)
 	(junction
-		(at 90.17 36.83)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2af0bf9a-6702-49fa-8a96-465f83cf6a57")
-	)
-	(junction
 		(at 111.76 74.93)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2cc88866-9087-4e9a-9a8a-7654f84a2172")
+	)
+	(junction
+		(at 90.17 36.83)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4253bb1c-b0b4-4767-bd54-3f99f7e705bd")
+	)
+	(junction
+		(at 90.17 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "51d89c99-f9a4-44fc-981c-87c0878fc566")
 	)
 	(junction
 		(at 111.76 36.83)
@@ -2327,12 +2333,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9a12d47a-aff0-4256-bfa7-81bf7cf78bcc")
-	)
-	(junction
-		(at 90.17 74.93)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "cfa2e695-0cc9-40e1-8cd4-ffab2ab17f6f")
 	)
 	(junction
 		(at 124.46 111.76)
@@ -2772,7 +2772,7 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 36.83) (xy 77.47 36.83)
+			(xy 52.07 36.83) (xy 67.31 36.83)
 		)
 		(stroke
 			(width 0)
@@ -2902,7 +2902,7 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 74.93) (xy 77.47 74.93)
+			(xy 52.07 74.93) (xy 67.31 74.93)
 		)
 		(stroke
 			(width 0)
@@ -2982,7 +2982,7 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 74.93) (xy 90.17 74.93)
+			(xy 72.39 74.93) (xy 90.17 74.93)
 		)
 		(stroke
 			(width 0)
@@ -3112,7 +3112,7 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 71.12) (xy 62.23 74.93)
+			(xy 52.07 71.12) (xy 52.07 74.93)
 		)
 		(stroke
 			(width 0)
@@ -3182,7 +3182,7 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 36.83) (xy 90.17 36.83)
+			(xy 72.39 36.83) (xy 90.17 36.83)
 		)
 		(stroke
 			(width 0)
@@ -3192,7 +3192,7 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 33.02) (xy 62.23 36.83)
+			(xy 52.07 33.02) (xy 52.07 36.83)
 		)
 		(stroke
 			(width 0)
@@ -6214,7 +6214,7 @@
 	)
 	(symbol
 		(lib_id "Device:L_Small")
-		(at 80.01 74.93 90)
+		(at 69.85 74.93 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6225,7 +6225,7 @@
 		(fields_autoplaced yes)
 		(uuid "781de460-2eb9-4233-9264-7c92b04679e1")
 		(property "Reference" "L6"
-			(at 80.01 69.85 90)
+			(at 69.85 69.85 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6235,7 +6235,7 @@
 			)
 		)
 		(property "Value" "3u3/0.9A"
-			(at 80.01 72.39 90)
+			(at 69.85 72.39 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6245,7 +6245,7 @@
 			)
 		)
 		(property "Footprint" "Inductor_SMD:L_0805_2012Metric"
-			(at 80.01 74.93 0)
+			(at 69.85 74.93 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6256,7 +6256,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 80.01 74.93 0)
+			(at 69.85 74.93 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6267,7 +6267,7 @@
 			)
 		)
 		(property "Description" "Inductor, small symbol"
-			(at 80.01 74.93 0)
+			(at 69.85 74.93 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6278,7 +6278,7 @@
 			)
 		)
 		(property "MPN" "MLP2012S3R3MT0S1"
-			(at 80.01 74.93 90)
+			(at 69.85 74.93 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6392,7 +6392,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 62.23 33.02 0)
+		(at 52.07 33.02 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6403,7 +6403,7 @@
 		(fields_autoplaced yes)
 		(uuid "7d7c4f74-ac9e-43ab-b853-1e18341ed6d4")
 		(property "Reference" "#PWR047"
-			(at 62.23 36.83 0)
+			(at 52.07 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6414,7 +6414,7 @@
 			)
 		)
 		(property "Value" "+2V8"
-			(at 62.23 27.94 0)
+			(at 52.07 27.94 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6424,7 +6424,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 62.23 33.02 0)
+			(at 52.07 33.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6435,7 +6435,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 62.23 33.02 0)
+			(at 52.07 33.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6446,7 +6446,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 62.23 33.02 0)
+			(at 52.07 33.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7673,7 +7673,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 62.23 71.12 0)
+		(at 52.07 71.12 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7684,7 +7684,7 @@
 		(fields_autoplaced yes)
 		(uuid "bf0f1722-0469-4b22-967e-64b453ac67ac")
 		(property "Reference" "#PWR046"
-			(at 62.23 74.93 0)
+			(at 52.07 74.93 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7695,7 +7695,7 @@
 			)
 		)
 		(property "Value" "+1V8"
-			(at 62.23 66.04 0)
+			(at 52.07 66.04 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7705,7 +7705,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 62.23 71.12 0)
+			(at 52.07 71.12 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7716,7 +7716,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 62.23 71.12 0)
+			(at 52.07 71.12 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7727,7 +7727,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 62.23 71.12 0)
+			(at 52.07 71.12 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7755,7 +7755,7 @@
 	)
 	(symbol
 		(lib_id "Device:L_Small")
-		(at 80.01 36.83 90)
+		(at 69.85 36.83 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7766,7 +7766,7 @@
 		(fields_autoplaced yes)
 		(uuid "c8da3984-fbc1-4d8b-a203-2db12c85e196")
 		(property "Reference" "L4"
-			(at 80.01 31.75 90)
+			(at 69.85 31.75 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7776,7 +7776,7 @@
 			)
 		)
 		(property "Value" "3u3/0.9A"
-			(at 80.01 34.29 90)
+			(at 69.85 34.29 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7786,7 +7786,7 @@
 			)
 		)
 		(property "Footprint" "Inductor_SMD:L_0805_2012Metric"
-			(at 80.01 36.83 0)
+			(at 69.85 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7797,7 +7797,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 80.01 36.83 0)
+			(at 69.85 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7808,7 +7808,7 @@
 			)
 		)
 		(property "Description" "Inductor, small symbol"
-			(at 80.01 36.83 0)
+			(at 69.85 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7819,7 +7819,7 @@
 			)
 		)
 		(property "MPN" "MLP2012S3R3MT0S1"
-			(at 80.01 36.83 90)
+			(at 69.85 36.83 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
