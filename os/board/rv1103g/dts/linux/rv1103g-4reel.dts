@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+
+#include "rv1103.dtsi"
+
+/ {
+	model = "4reel RV1103G1";
+	compatible = "machinehum,4reel-rv1103g1", "rockchip,rv1103";
+
+	aliases {
+		/delete-property/ mmc1;
+		mmc0 = &sdmmc;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x04000000>;
+	};
+};
+
+&gpio1 {
+	camera_xshutdown_hog: camera-xshutdown-hog {
+		gpio-hog;
+		gpios = <RK_PC1 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "camera-xshutdown";
+	};
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4m1_xfer>;
+	status = "okay";
+};
+
+&sdmmc {
+	bus-width = <4>;
+	cap-sd-highspeed;
+	disable-wp;
+	max-frequency = <50000000>;
+	no-1-8-v;
+	no-mmc;
+	no-sdio;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc0_clk &sdmmc0_cmd &sdmmc0_det &sdmmc0_bus4>;
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};

@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+
+#include "rv1103.dtsi"
+
+/ {
+	model = "4reel RV1103G1";
+	compatible = "machinehum,4reel-rv1103g1", "rockchip,rv1103";
+
+	aliases {
+		mmc0 = &sdmmc;
+		serial2 = &uart2;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x04000000>;
+	};
+};
+
+&sdmmc {
+	/* U-Boot treats the boot-only slot as present when no CD GPIO is given. */
+	/delete-property/ cd-gpios;
+	bus-width = <4>;
+	cap-sd-highspeed;
+	disable-wp;
+	max-frequency = <50000000>;
+	no-1-8-v;
+	no-mmc;
+	no-sdio;
+	status = "okay";
+};
+
+&sfc {
+	status = "disabled";
+};
+
+&uart2 {
+	bootph-all;
+	status = "okay";
+};

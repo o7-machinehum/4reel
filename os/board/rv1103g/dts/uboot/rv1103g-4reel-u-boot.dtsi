@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+#include "rockchip-u-boot.dtsi"
+
+/ {
+	chosen {
+		u-boot,spl-boot-order = &sdmmc;
+	};
+};
+
+&xin24m {
+	bootph-all;
+};
+
+&cru {
+	bootph-all;
+};
+
+&grf {
+	bootph-all;
+};
+
+&grf_cru {
+	bootph-all;
+};
+
+&ioc {
+	bootph-all;
+};
+
+&pmuioc {
+	bootph-all;
+};
+
+&pcfg_pull_up {
+	bootph-all;
+};
+
+&pcfg_pull_up_drv_level_2 {
+	bootph-all;
+};
+
+&pinctrl {
+	bootph-all;
+};
+
+&sdmmc {
+	bootph-all;
+	u-boot,spl-fifo-mode;
+};
+
+&sdmmc0_bus4 {
+	bootph-all;
+};
+
+&sdmmc0_clk {
+	bootph-all;
+};
+
+&sdmmc0_cmd {
+	bootph-all;
+};
+
+&sdmmc0_det {
+	bootph-all;
+};
+
+&uart2 {
+	bootph-all;
+};
+
+&uart2m1_xfer {
+	bootph-all;
+};
