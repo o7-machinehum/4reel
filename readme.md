@@ -10,3 +10,4 @@
 - Change SoC to RV1106G3
     - This might need a new PMIC etc
 - Power distrobution trace thickness
+- LED resistors too large
