@@ -119,6 +119,22 @@
 	};
 };
 
+&gmac {
+	status = "okay";
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3m1_xfer>;
+	status = "okay";
+
+	accelerometer@1e {
+		compatible = "st,lis2hh12";
+		reg = <0x1e>;
+	};
+};
+
 &i2c4 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
@@ -250,6 +266,18 @@
 	};
 };
 
+&sfc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&fspi_pins &fspi_cs0>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+	};
+};
+
 &sdmmc {
 	bus-width = <4>;
 	cap-sd-highspeed;
@@ -264,5 +292,22 @@
 };
 
 &uart2 {
+	status = "okay";
+};
+
+&u2phy {
+	status = "okay";
+};
+
+&u2phy_otg {
+	status = "okay";
+};
+
+&usbdrd {
+	status = "okay";
+};
+
+&usbdrd_dwc3 {
+	dr_mode = "peripheral";
 	status = "okay";
 };
