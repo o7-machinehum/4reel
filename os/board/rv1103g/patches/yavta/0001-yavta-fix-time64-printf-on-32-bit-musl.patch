@@ -1,0 +1,35 @@
+Yavta prints time_t and suseconds_t values with %ld, but both types are
+64-bit on 32-bit musl. The mismatched varargs can crash at the first frame
+report, before a captured image is saved. Cast them to long long and use
+the matching format specifier.
+
+diff --git a/yavta.c b/yavta.c
+--- a/yavta.c
++++ b/yavta.c
+@@ -2185,12 +2185,12 @@ static int video_do_capture(struct device *dev, unsigned int nframes,
+ 
+ 		clock_gettime(CLOCK_MONOTONIC, &ts);
+ 		get_ts_flags(buf.flags, &ts_type, &ts_source);
+-		printf("%u (%u) [%c] %s %u %u B %ld.%06ld %ld.%06ld %.3f fps ts %s/%s\n", i, buf.index,
++		printf("%u (%u) [%c] %s %u %u B %lld.%06lld %lld.%06ld %.3f fps ts %s/%s\n", i, buf.index,
+ 			(buf.flags & V4L2_BUF_FLAG_ERROR) ? 'E' : '-',
+ 			v4l2_field_name(buf.field),
+ 			buf.sequence, video_buffer_bytes_used(dev, &buf),
+-			buf.timestamp.tv_sec, buf.timestamp.tv_usec,
+-			ts.tv_sec, ts.tv_nsec/1000, fps,
++			(long long)buf.timestamp.tv_sec, (long long)buf.timestamp.tv_usec,
++			(long long)ts.tv_sec, ts.tv_nsec/1000, fps,
+ 			ts_type, ts_source);
+ 
+ 		last = buf.timestamp;
+@@ -2247,8 +2247,8 @@ static int video_do_capture(struct device *dev, unsigned int nframes,
+ 	bps = size/(ts.tv_nsec/1000.0+1000000.0*ts.tv_sec)*1000000.0;
+ 	fps = i/(ts.tv_nsec/1000.0+1000000.0*ts.tv_sec)*1000000.0;
+ 
+-	printf("Captured %u frames in %lu.%06lu seconds (%f fps, %f B/s).\n",
+-		i, ts.tv_sec, ts.tv_nsec/1000, fps, bps);
++	printf("Captured %u frames in %lld.%06ld seconds (%f fps, %f B/s).\n",
++		i, (long long)ts.tv_sec, ts.tv_nsec/1000, fps, bps);
+ 
+ done:
+ 	return video_free_buffers(dev);

@@ -21,6 +21,87 @@
 		device_type = "memory";
 		reg = <0x00000000 0x04000000>;
 	};
+
+	/* Each sensor has its own free-running 24 MHz oscillator. */
+	ov9281_xvclk0: ov9281-xvclk0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+
+	ov9281_xvclk1: ov9281-xvclk1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&csi2_dphy_hw {
+	status = "okay";
+};
+
+&csi2_dphy1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csi_dphy1_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&ov9281_0_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csi_dphy1_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi0_csi2_input>;
+			};
+		};
+	};
+};
+
+&csi2_dphy2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csi_dphy2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&ov9281_1_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csi_dphy2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi1_csi2_input>;
+			};
+		};
+	};
 };
 
 &gpio1 {
@@ -43,6 +124,130 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c4m1_xfer>;
 	status = "okay";
+
+	ov9281_0: ov9281@10 {
+		compatible = "ovti,ov9281";
+		reg = <0x10>;
+		clocks = <&ov9281_xvclk0>;
+		clock-names = "xvclk";
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "4reel-ov9281";
+		rockchip,camera-module-lens-name = "unknown";
+
+		port {
+			ov9281_0_out: endpoint {
+				remote-endpoint = <&csi_dphy1_input>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+
+	ov9281_1: ov9281@60 {
+		compatible = "ovti,ov9281";
+		reg = <0x60>;
+		clocks = <&ov9281_xvclk1>;
+		clock-names = "xvclk";
+		rockchip,camera-module-index = <1>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "4reel-ov9281";
+		rockchip,camera-module-lens-name = "unknown";
+
+		port {
+			ov9281_1_out: endpoint {
+				remote-endpoint = <&csi_dphy2_input>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csi_dphy1_output>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi0_input>;
+			};
+		};
+	};
+};
+
+&mipi1_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi1_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csi_dphy2_output>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi1_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi1_input>;
+			};
+		};
+	};
+};
+
+&rkcif {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mipi_pins>;
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+
+	port {
+		cif_mipi0_input: endpoint {
+			remote-endpoint = <&mipi0_csi2_output>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds1 {
+	status = "okay";
+
+	port {
+		cif_mipi1_input: endpoint {
+			remote-endpoint = <&mipi1_csi2_output>;
+		};
+	};
 };
 
 &sdmmc {
