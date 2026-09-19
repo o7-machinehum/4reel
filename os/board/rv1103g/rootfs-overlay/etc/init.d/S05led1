@@ -1,0 +1,21 @@
+#!/bin/sh
+
+GPIO=/sys/class/gpio
+LED1=57 # GPIO1_D1
+LED2=55 # GPIO1_C7
+
+case "$1" in
+	start|restart)
+		[ -d "$GPIO/gpio$LED1" ] || echo "$LED1" > "$GPIO/export"
+		[ -d "$GPIO/gpio$LED2" ] || echo "$LED2" > "$GPIO/export"
+		echo high > "$GPIO/gpio$LED1/direction"
+		echo low > "$GPIO/gpio$LED2/direction"
+		;;
+	stop)
+		[ ! -d "$GPIO/gpio$LED1" ] || echo low > "$GPIO/gpio$LED1/direction"
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac

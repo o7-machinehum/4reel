@@ -24,6 +24,12 @@
 };
 
 &gpio1 {
+	gpio-line-names =
+		"", "", "", "", "", "", "", "", /* A0-A7 */
+		"", "", "", "", "", "", "", "", /* B0-B7 */
+		"", "", "", "", "", "", "", "led2", /* C0-C7 */
+		"", "led1", "", "", "", "", "", ""; /* D0-D7 */
+
 	camera_xshutdown_hog: camera-xshutdown-hog {
 		gpio-hog;
 		gpios = <RK_PC1 GPIO_ACTIVE_HIGH>;

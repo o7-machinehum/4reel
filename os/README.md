@@ -9,4 +9,4 @@ make BR2_EXTERNAL=$PWD/../ rv1103g_defconfig
 make
 ```
 
-The SD-card image is written to `os/output/rv1103g/images/sdcard.img`.
+The SD-card image is written to `os/buildroot/output/images/sdcard.img`.
