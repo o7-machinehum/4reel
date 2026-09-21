@@ -1,0 +1,2 @@
+# Development-only: blank-password root login, bound to the USB gadget.
+DROPBEAR_ARGS="-p 192.168.77.1:22 -l usb0 -B"
