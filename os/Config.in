@@ -1,1 +1,2 @@
-# No external packages are needed for the initial board bring-up.
+source "$BR2_EXTERNAL_FOURREEL_PATH/package/rockchip-rve/Config.in"
+source "$BR2_EXTERNAL_FOURREEL_PATH/package/fourreel-web/Config.in"

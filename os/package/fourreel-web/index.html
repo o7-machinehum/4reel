@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4reel stereo camera</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.45 system-ui, sans-serif; background: #101519; color: #edf2f4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header, main { max-width: 1200px; margin: auto; padding: 1rem; }
+    header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.5rem; }
+    h1 { font-size: 1.5rem; margin: 0; }
+    h2 { font-size: 1.15rem; margin: 0 0 .7rem; }
+    h3 { font-size: 1rem; margin: 0; }
+    p { margin: .5rem 0; }
+    .muted, figcaption, small { color: #a6b4bd; }
+    .panel { padding: 1rem; margin-bottom: 1rem; background: #1b242a; border: 1px solid #34434b; border-radius: .7rem; }
+    .row { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
+    .row > label { display: grid; gap: .2rem; }
+    button, input { font: inherit; }
+    button { min-height: 2.5rem; padding: .45rem .85rem; color: #fff; background: #256c83; border: 1px solid #3e9ab5; border-radius: .35rem; cursor: pointer; }
+    button:hover { background: #307d96; }
+    a { color: #8bd8f0; }
+    button:disabled { opacity: .5; cursor: wait; }
+    input[type=number] { width: 7rem; min-height: 2.5rem; padding: .35rem; color: inherit; background: #11181d; border: 1px solid #667981; border-radius: .35rem; }
+    input[type=checkbox] { width: 1.15rem; height: 1.15rem; }
+    .check { display: flex !important; align-items: center; gap: .45rem !important; min-height: 2.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+    figure { margin: 0; min-width: 0; }
+    figcaption { padding: .35rem 0; }
+    .photo { position: relative; width: 100%; aspect-ratio: 8 / 5; background: #0a0e10; overflow: hidden; border: 1px solid #39474e; border-radius: .4rem; }
+    .photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .photo img[hidden] { display: none; }
+    .empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; color: #8899a3; }
+    .empty[hidden] { display: none; }
+    .snapshot .photo img { cursor: crosshair; }
+    .marker { position: absolute; transform: translate(-50%, -50%); color: #ffcc55; font: bold 2rem/1 monospace; pointer-events: none; text-shadow: 0 0 3px #000, 0 0 8px #000; }
+    .marker[hidden] { display: none; }
+    .coords { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .7rem; padding: .35rem 0; }
+    .coords label { display: flex; align-items: center; gap: .3rem; }
+    .coords input { width: 5.3rem; min-height: 2rem; }
+    .slot { margin: 1rem 0; padding-top: 1rem; border-top: 1px solid #34434b; }
+    .slot-head { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; margin-bottom: .7rem; }
+    .slot-head label { display: flex; align-items: center; gap: .4rem; }
+    #error { padding: .7rem; margin-bottom: 1rem; color: #ffe5e5; background: #692e35; border-radius: .4rem; white-space: pre-wrap; }
+    #error[hidden] { display: none; }
+    #status { color: #b9dce8; }
+    .metric { display: inline-block; margin-right: 1rem; }
+    .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .55rem; margin: .7rem 0; }
+    .diag-card { padding: .55rem .7rem; background: #11181d; border: 1px solid #34434b; border-radius: .4rem; }
+    .diag-card small { display: block; }
+    .diag-card output { font: 600 1.05rem/1.5 ui-monospace, monospace; }
+    .diag-bars { display: grid; gap: .45rem; margin-top: .75rem; }
+    .diag-row { display: grid; grid-template-columns: 7rem minmax(5rem, 1fr) 8rem; align-items: center; gap: .6rem; }
+    .diag-track { height: .55rem; overflow: hidden; background: #0a0e10; border-radius: 1rem; }
+    .diag-fill { display: block; width: 0; height: 100%; background: #49aac6; border-radius: inherit; transition: width .15s ease; }
+    .diag-time { text-align: right; font: .9rem/1.4 ui-monospace, monospace; }
+    #diag-summary { color: #b9dce8; }
+    ol { padding-left: 1.4rem; }
+    li { margin-bottom: .3rem; }
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
+      .diag-row { grid-template-columns: 6rem minmax(3rem, 1fr) 7.5rem; gap: .4rem; }
+      header, main { padding: .7rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>4reel stereo camera</h1>
+    <span id="status" role="status">Connecting…</span>
+  </header>
+  <main>
+    <div id="error" role="alert" hidden></div>
+
+    <section class="panel" aria-labelledby="control-title">
+      <h2 id="control-title">Camera controls</h2>
+      <div class="row">
+        <button id="capture" type="button" aria-pressed="false">Start capture</button>
+        <form id="settings" class="row">
+          <label class="check"><input id="auto-exposure" name="auto_exposure" type="checkbox"> Auto exposure</label>
+          <label>Exposure <input id="exposure" name="exposure" type="number" min="4" max="3652" step="1" required></label>
+          <label>Gain <input id="gain" name="gain" type="number" min="16" max="248" step="1" required></label>
+          <label class="check"><input id="swapped" name="swapped" type="checkbox"> Swap cameras</label>
+          <button type="submit">Apply settings</button>
+        </form>
+      </div>
+      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
+      <p><span class="metric">Frames: <span id="frames">—</span></span><span class="metric">Pair timing: <span id="pair-delta">—</span></span></p>
+    </section>
+
+    <section class="panel" aria-labelledby="live-title">
+      <h2 id="live-title">Live images</h2>
+      <div class="grid">
+        <figure><div class="photo"><img id="live-left" alt="Live left camera" hidden><span id="empty-left" class="empty">Start capture to view the left camera</span></div><figcaption>Left camera</figcaption></figure>
+        <figure><div class="photo"><img id="live-right" alt="Live right camera" hidden><span id="empty-right" class="empty">Start capture to view the right camera</span></div><figcaption>Right camera</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="diag-title">
+      <h2 id="diag-title">Performance diagnostics</h2>
+      <p id="diag-summary">Waiting for timing data…</p>
+      <p><span id="diag-backend">Depth backend: waiting…</span> · <span id="diag-sad">SAD: —</span></p>
+      <div class="diag-grid">
+        <div class="diag-card"><small>Sensor → processing (L: CIF, R: CPU)</small><output id="diag-resolution">—</output></div>
+        <div class="diag-card"><small>Depth output</small><output id="diag-output-fps">—</output></div>
+        <div class="diag-card"><small>Camera input FPS</small><output id="diag-raw-fps">—</output></div>
+        <div class="diag-card"><small>Pipeline work/output</small><output id="diag-pair-total">—</output></div>
+        <div class="diag-card"><small>Skipped input frames</small><output id="diag-skipped">—</output></div>
+        <div class="diag-card"><small>Converted input frames</small><output id="diag-decoded">—</output></div>
+        <div class="diag-card"><small>Sync drops</small><output id="diag-sync-dropped">—</output></div>
+      </div>
+      <div class="diag-bars" aria-label="Processing-stage timing">
+        <div class="diag-row"><span>Unpack / downsample</span><span class="diag-track"><span id="diag-unpack-bar" class="diag-fill"></span></span><span id="diag-unpack" class="diag-time">—</span></div>
+        <div class="diag-row"><span>Depth match</span><span class="diag-track"><span id="diag-depth-bar" class="diag-fill"></span></span><span id="diag-depth" class="diag-time">—</span></div>
+        <div class="diag-row"><span>Auto exposure</span><span class="diag-track"><span id="diag-ae-bar" class="diag-fill"></span></span><span id="diag-ae" class="diag-time">—</span></div>
+        <div class="diag-row"><span>HTTP image</span><span class="diag-track"><span id="diag-http-image-bar" class="diag-fill"></span></span><span id="diag-http-image" class="diag-time">—</span></div>
+        <div class="diag-row"><span>HTTP status</span><span class="diag-track"><span id="diag-http-status-bar" class="diag-fill"></span></span><span id="diag-http-status" class="diag-time">—</span></div>
+      </div>
+      <p class="muted">Bars are relative to the slowest measured stage. The 30 FPS processing target has a 33 ms frame budget.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="depth-title">
+      <h2 id="depth-title">Depth map</h2>
+      <div class="grid">
+        <figure><div class="photo"><img id="live-depth" alt="Color depth map" hidden><span id="empty-depth" class="empty">Start capture to view depth</span></div><figcaption>Depth visualization: red nearer, blue farther, black unreliable</figcaption></figure>
+        <div>
+          <p id="calibration-state">Calibration: checking…</p>
+          <p class="muted">This is an approximate two-point stereo depth estimate. Textureless, reflective, moving, or occluded areas may have no reliable depth.</p>
+          <p><a href="/api/depth.pgm">Download 16-bit depth map (millimetres, 0 = invalid)</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="cal-title">
+      <h2 id="cal-title">Calibrate depth</h2>
+      <ol>
+        <li>Start capture. Put a high-contrast, stationary target at a measured <strong>near</strong> distance from the camera pair; take a near snapshot.</li>
+        <li>Click the <strong>same physical feature</strong> in the left and right snapshot images. You can fine-tune the pixel coordinates below each image.</li>
+        <li>Move that target to a measured <strong>far</strong> distance and repeat. Enter both distances in millimetres, then select Calibrate.</li>
+      </ol>
+      <p class="muted">Use a static scene: the two sensors have independent clocks. Two distances give an approximate depth scale and offset; this does not correct lens distortion, rotation, or full camera intrinsics. For accurate metric depth, use a full stereo calibration.</p>
+      <form id="calibration">
+        <div id="snapshots"></div>
+        <button type="submit">Calibrate</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="acc-title">
+      <h2 id="acc-title">Accelerometer</h2>
+      <p id="accel" aria-live="polite">Waiting for sensor data…</p>
+      <p class="muted">Values are sensor-axis acceleration in m/s², not world coordinates.</p>
+    </section>
+  </main>
+  <script>
+    'use strict';
+    const $ = id => document.getElementById(id);
+    let state = { capture: false, frame: -1, swapped: false };
+    let shownFrame = -1;
+    let settingsDirty = false;
+    let actionError = '';
+    let statusRequest = null;
+    const pollIntervalMs = 100;
+    const liveSides = ['left', 'right', 'depth'];
+
+    for (const slot of ['near', 'far']) {
+      $('snapshots').insertAdjacentHTML('beforeend', `
+        <div class="slot snapshot">
+          <div class="slot-head">
+            <h3>${slot === 'near' ? 'Near' : 'Far'} target</h3>
+            <label>Distance (mm) <input id="${slot}_mm" name="${slot}_mm" type="number" min="1" step="any" required></label>
+            <button id="snap-${slot}" type="button">Take ${slot} snapshot</button>
+          </div>
+          <div class="grid">
+            ${['left', 'right'].map(side => `
+              <figure>
+                <div class="photo">
+                  <img id="${slot}-${side}" alt="${slot} snapshot, ${side} camera; click the target feature" hidden>
+                  <span id="${slot}-${side}-mark" class="marker" hidden>+</span>
+                  <span id="${slot}-${side}-empty" class="empty">Take a ${slot} snapshot first</span>
+                </div>
+                <figcaption>${side === 'left' ? 'Left' : 'Right'}: click the target feature</figcaption>
+                <div class="coords">
+                  <label>X <input id="${slot}_${side[0]}x" name="${slot}_${side[0]}x" type="number" min="0" step="1" required></label>
+                  <label>Y <input id="${slot}_${side[0]}y" name="${slot}_${side[0]}y" type="number" min="0" step="1" required></label>
+                </div>
+              </figure>`).join('')}
+          </div>
+        </div>`);
+    }
+
+    function showError(message) {
+      $('error').textContent = message;
+      $('error').hidden = !message;
+    }
+
+    async function checked(response) {
+      if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+      return response;
+    }
+
+    function post(path, values) {
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-4reel-control': '1' },
+        body: new URLSearchParams(values)
+      }).then(checked);
+    }
+
+    async function action(button, work) {
+      button.disabled = true;
+      actionError = '';
+      showError('');
+      try {
+        await work();
+        await refreshStatus();
+      } catch (error) {
+        actionError = error.message;
+        showError(actionError);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function setImage(id, url) {
+      const img = $(id);
+      img.src = url;
+    }
+
+    function updateExposureInputs() {
+      const automatic = $('auto-exposure').checked;
+      $('exposure').disabled = automatic;
+      $('gain').disabled = automatic;
+    }
+
+    function diagnosticNumber(diagnostics, key) {
+      if (!diagnostics || diagnostics[key] === null || diagnostics[key] === undefined || diagnostics[key] === '') return null;
+      const value = Number(diagnostics[key]);
+      return Number.isFinite(value) && value >= 0 ? value : null;
+    }
+
+    function renderDiagnostics(diagnostics) {
+      $('diag-backend').textContent = diagnostics?.depth_backend || 'Depth backend unavailable';
+      $('diag-sad').textContent = Number.isFinite(diagnostics?.sad_ms)
+        ? `SAD submissions: ${diagnostics.sad_ms.toFixed(1)} ms / ${diagnostics.sad_passes} passes`
+        : 'SAD: —';
+      const outputFps = diagnosticNumber(diagnostics, 'output_fps');
+      const rawLeft = diagnosticNumber(diagnostics, 'raw_fps_left');
+      const rawRight = diagnosticNumber(diagnostics, 'raw_fps_right');
+      const pairTotal = diagnosticNumber(diagnostics, 'process_ms');
+      const skippedLeft = diagnosticNumber(diagnostics, 'skipped_left');
+      const skippedRight = diagnosticNumber(diagnostics, 'skipped_right');
+      const decodedLeft = diagnosticNumber(diagnostics, 'decoded_left');
+      const decodedRight = diagnosticNumber(diagnostics, 'decoded_right');
+      const syncDroppedLeft = diagnosticNumber(diagnostics, 'sync_dropped_left');
+      const syncDroppedRight = diagnosticNumber(diagnostics, 'sync_dropped_right');
+      const captureWidth = diagnosticNumber(diagnostics, 'capture_width');
+      const captureHeight = diagnosticNumber(diagnostics, 'capture_height');
+      const processingWidth = diagnosticNumber(diagnostics, 'processing_width');
+      const processingHeight = diagnosticNumber(diagnostics, 'processing_height');
+      const unpackLeft = diagnosticNumber(diagnostics, 'unpack_ms_left');
+      const unpackRight = diagnosticNumber(diagnostics, 'unpack_ms_right');
+      const unpackTimes = [unpackLeft, unpackRight].filter(value => value !== null);
+      const measuredUnpackTotal = diagnosticNumber(diagnostics, 'unpack_ms');
+      const unpackTotal = measuredUnpackTotal !== null ? measuredUnpackTotal :
+        (unpackTimes.length === 2 ? unpackLeft + unpackRight :
+          (unpackTimes.length ? unpackTimes[0] : null));
+      const httpImage = diagnosticNumber(diagnostics, 'http_image_ms');
+      const httpStatus = diagnosticNumber(diagnostics, 'http_status_ms');
+      const stages = [
+        ['unpack', 'Unpack / downsample', unpackTotal,
+          unpackLeft === null || unpackRight === null ? null :
+            `${unpackTotal.toFixed(1)} ms total (L ${unpackLeft.toFixed(1)} · R ${unpackRight.toFixed(1)})`],
+        ['depth', 'Depth matching', diagnosticNumber(diagnostics, 'depth_ms'), null],
+        ['ae', 'Auto exposure', diagnosticNumber(diagnostics, 'ae_ms'), null],
+        ['http-image', 'HTTP image request', httpImage, httpImage === null ? null : `${httpImage.toFixed(1)} ms/request`],
+        ['http-status', 'HTTP status request', httpStatus, httpStatus === null ? null : `${httpStatus.toFixed(1)} ms/request`]
+      ];
+
+      $('diag-resolution').textContent = [captureWidth, captureHeight, processingWidth, processingHeight].every(value => value !== null)
+        ? `${Math.round(captureWidth)}×${Math.round(captureHeight)} → ${Math.round(processingWidth)}×${Math.round(processingHeight)}` : '—';
+      $('diag-output-fps').textContent = outputFps === null ? '—' : `${outputFps.toFixed(1)} FPS`;
+      $('diag-raw-fps').textContent = rawLeft === null || rawRight === null
+        ? '—' : `L ${rawLeft.toFixed(1)} · R ${rawRight.toFixed(1)}`;
+      $('diag-pair-total').textContent = pairTotal === null ? '—' : `${pairTotal.toFixed(1)} ms`;
+      $('diag-skipped').textContent = skippedLeft === null || skippedRight === null
+        ? '—' : `L ${Math.round(skippedLeft)} · R ${Math.round(skippedRight)}`;
+      $('diag-decoded').textContent = decodedLeft === null || decodedRight === null
+        ? '—' : `L ${Math.round(decodedLeft)} · R ${Math.round(decodedRight)}`;
+      $('diag-sync-dropped').textContent = syncDroppedLeft === null || syncDroppedRight === null
+        ? '—' : `L ${Math.round(syncDroppedLeft)} · R ${Math.round(syncDroppedRight)}`;
+
+      const validStages = stages.filter(stage => stage[2] !== null);
+      const slowestMs = validStages.reduce((maximum, stage) => Math.max(maximum, stage[2]), 0);
+      for (const [id, , duration, display] of stages) {
+        $(`diag-${id}`).textContent = duration === null ? '—' : (display || `${duration.toFixed(1)} ms`);
+        $(`diag-${id}-bar`).style.width = duration === null || slowestMs <= 0
+          ? '0' : `${100 * duration / slowestMs}%`;
+      }
+
+      if (!diagnostics || (!validStages.length && outputFps === null && pairTotal === null)) {
+        $('diag-summary').textContent = 'No diagnostics reported by this firmware image.';
+        return;
+      }
+      if (!state.capture) {
+        $('diag-summary').textContent = 'Start capture to collect current performance data.';
+        return;
+      }
+      const rawRates = [rawLeft, rawRight].filter(value => value !== null);
+      const rawMinimum = rawRates.length ? Math.min(...rawRates) : null;
+      const processingStages = validStages.filter(stage => !stage[0].startsWith('http-'));
+      const slowest = processingStages.reduce((current, stage) => !current || stage[2] > current[2] ? stage : current, null);
+      if (outputFps !== null && outputFps >= 28.0) {
+        $('diag-summary').textContent = slowest
+          ? `Output is meeting the 30 FPS target. The largest measured stage is ${slowest[1].toLowerCase()} (${slowest[2].toFixed(1)} ms).`
+          : 'Output is meeting the 30 FPS target.';
+      } else if (rawMinimum !== null && rawMinimum < 28.0) {
+        $('diag-summary').textContent = `Camera input is limiting output: the slower sensor is delivering ${rawMinimum.toFixed(1)} FPS.`;
+      } else if (pairTotal !== null && pairTotal > 33) {
+        $('diag-summary').textContent = slowest
+          ? `Pipeline work exceeds the 33 ms budget; ${slowest[1].toLowerCase()} is the largest measured stage.`
+          : `Pipeline work takes ${pairTotal.toFixed(1)} ms per output, over the 33 ms budget.`;
+      } else if (pairTotal !== null && outputFps !== null) {
+        $('diag-summary').textContent = 'Measured compute is within budget; check synchronization drops and per-request HTTP blocking.';
+      } else {
+        $('diag-summary').textContent = 'Timing data is incomplete; capture a few frames and check again.';
+      }
+    }
+
+    for (const side of liveSides) {
+      const img = $(`live-${side}`);
+      img.onload = () => { img.hidden = !state.capture; $(`empty-${side}`).hidden = state.capture; };
+      img.onerror = () => { img.hidden = true; $(`empty-${side}`).hidden = false; };
+    }
+
+    function renderStatus(next) {
+      state = next;
+      $('status').textContent = next.capture ? '● Capturing' : '○ Capture stopped';
+      $('capture').textContent = next.capture ? 'Stop capture' : 'Start capture';
+      $('capture').setAttribute('aria-pressed', String(Boolean(next.capture)));
+      $('frames').textContent = Number.isFinite(next.frame) ? next.frame : '—';
+      $('pair-delta').textContent = Number.isFinite(next.pair_delta_ms) && next.pair_delta_ms >= 0
+        ? `${next.pair_delta_ms.toFixed(1)} ms` : '—';
+      renderDiagnostics(next.diagnostics);
+      if (!settingsDirty || next.auto_exposure) {
+        $('exposure').value = next.exposure;
+        $('gain').value = next.gain;
+      }
+      if (!settingsDirty) {
+        $('auto-exposure').checked = Boolean(next.auto_exposure);
+        $('swapped').checked = Boolean(next.swapped);
+      }
+      updateExposureInputs();
+      $('calibration-state').textContent = next.calibrated
+        ? `Calibrated · disparity offset ${next.offset_px.toFixed(1)} px · scale ${next.scale_px_mm.toFixed(1)} px·mm · vertical offset ${next.vertical_px.toFixed(1)} px`
+        : 'Not calibrated: depth is relative until you complete the steps below.';
+      $('accel').textContent = next.accel
+        ? `X ${next.accel.x.toFixed(3)} · Y ${next.accel.y.toFixed(3)} · Z ${next.accel.z.toFixed(3)}`
+        : 'No accelerometer reading available';
+      if (!next.capture) {
+        shownFrame = -1;
+        for (const side of liveSides) {
+          $(`live-${side}`).hidden = true;
+          $(`empty-${side}`).hidden = false;
+        }
+      }
+      if (next.capture && next.frame > 0 && next.frame !== shownFrame &&
+          liveSides.every(side => $(`live-${side}`).complete)) {
+        shownFrame = next.frame;
+        const cacheKey = `${Date.now()}-${next.frame}`;
+        for (const side of liveSides) {
+          setImage(`live-${side}`, `/api/${side}.bmp?t=${cacheKey}`);
+        }
+      }
+      if (!actionError) showError(next.error || '');
+    }
+
+    async function refreshStatus() {
+      if (statusRequest) return statusRequest;
+      statusRequest = (async () => {
+        const response = await checked(await fetch(`/api/status?t=${Date.now()}`, { cache: 'no-store' }));
+        renderStatus(await response.json());
+      })();
+      try {
+        return await statusRequest;
+      } finally {
+        statusRequest = null;
+      }
+    }
+
+    async function poll() {
+      const started = performance.now();
+      try {
+        await refreshStatus();
+      } catch (error) {
+        $('status').textContent = 'Disconnected';
+        if (!actionError) showError(error.message);
+      } finally {
+        setTimeout(poll, Math.max(0, pollIntervalMs - (performance.now() - started)));
+      }
+    }
+
+    $('capture').addEventListener('click', event => action(event.currentTarget, async () => {
+      await post('/api/capture', { enabled: state.capture ? '0' : '1' });
+    }));
+
+    $('settings').addEventListener('input', () => { settingsDirty = true; });
+    $('settings').addEventListener('change', event => {
+      settingsDirty = true;
+      if (event.target === $('auto-exposure')) updateExposureInputs();
+    });
+    $('settings').addEventListener('submit', event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+      const button = form.querySelector('button[type=submit]');
+      const swapped = $('swapped').checked;
+      const wasSwapped = state.swapped;
+      action(button, async () => {
+        await post('/api/settings', {
+          auto_exposure: $('auto-exposure').checked ? '1' : '0',
+          exposure: $('exposure').value,
+          gain: $('gain').value,
+          swapped: swapped ? '1' : '0'
+        });
+        settingsDirty = false;
+        if (swapped !== wasSwapped) clearSnapshots();
+      });
+    });
+
+    function clearSnapshots() {
+      for (const slot of ['near', 'far']) {
+        for (const side of ['left', 'right']) {
+          $(`${slot}-${side}`).hidden = true;
+          $(`${slot}-${side}`).removeAttribute('src');
+          $(`${slot}-${side}-empty`).hidden = false;
+          $(`${slot}_${side[0]}x`).value = '';
+          $(`${slot}_${side[0]}y`).value = '';
+          $(`${slot}-${side}-mark`).hidden = true;
+        }
+      }
+    }
+
+    function updateMarker(slot, side) {
+      const img = $(`${slot}-${side}`);
+      const x = $(`${slot}_${side[0]}x`).value;
+      const y = $(`${slot}_${side[0]}y`).value;
+      const mark = $(`${slot}-${side}-mark`);
+      if (!img.naturalWidth || x === '' || y === '' || Number(x) < 0 || Number(y) < 0 ||
+          Number(x) >= img.naturalWidth || Number(y) >= img.naturalHeight) {
+        mark.hidden = true;
+        return;
+      }
+      mark.style.left = `${100 * Number(x) / img.naturalWidth}%`;
+      mark.style.top = `${100 * Number(y) / img.naturalHeight}%`;
+      mark.hidden = false;
+    }
+
+    for (const slot of ['near', 'far']) {
+      $(`snap-${slot}`).addEventListener('click', event => action(event.currentTarget, async () => {
+        await post('/api/snapshot', { slot });
+        for (const side of ['left', 'right']) {
+          $(`${slot}_${side[0]}x`).value = '';
+          $(`${slot}_${side[0]}y`).value = '';
+          $(`${slot}-${side}-mark`).hidden = true;
+          setImage(`${slot}-${side}`, `/api/snapshot/${slot}/${side}.bmp?t=${Date.now()}`);
+        }
+      }));
+      for (const side of ['left', 'right']) {
+        const img = $(`${slot}-${side}`);
+        img.onload = () => { img.hidden = false; $(`${slot}-${side}-empty`).hidden = true; };
+        img.onerror = () => { img.hidden = true; $(`${slot}-${side}-empty`).hidden = false; };
+        img.addEventListener('click', event => {
+          if (!img.naturalWidth) return;
+          const rect = img.getBoundingClientRect();
+          const x = Math.max(0, Math.min(img.naturalWidth - 1, Math.round((event.clientX - rect.left) * img.naturalWidth / rect.width)));
+          const y = Math.max(0, Math.min(img.naturalHeight - 1, Math.round((event.clientY - rect.top) * img.naturalHeight / rect.height)));
+          $(`${slot}_${side[0]}x`).value = x;
+          $(`${slot}_${side[0]}y`).value = y;
+          updateMarker(slot, side);
+        });
+        for (const axis of ['x', 'y']) {
+          $(`${slot}_${side[0]}${axis}`).addEventListener('input', () => updateMarker(slot, side));
+        }
+      }
+    }
+
+    $('calibration').addEventListener('submit', event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+      const near = Number($('near_mm').value);
+      const far = Number($('far_mm').value);
+      if (near >= far) { showError('Near distance must be less than far distance.'); return; }
+      for (const slot of ['near', 'far']) {
+        for (const side of ['left', 'right']) {
+          const img = $(`${slot}-${side}`);
+          const x = Number($(`${slot}_${side[0]}x`).value);
+          const y = Number($(`${slot}_${side[0]}y`).value);
+          if (!img.naturalWidth || x >= img.naturalWidth || y >= img.naturalHeight) {
+            showError(`Take a ${slot} snapshot and select valid ${side} image coordinates.`);
+            return;
+          }
+        }
+      }
+      action(form.querySelector('button[type=submit]'), async () => {
+        await post('/api/calibrate', Object.fromEntries(new FormData(form)));
+      });
+    });
+
+    poll();
+  </script>
+</body>
+</html>

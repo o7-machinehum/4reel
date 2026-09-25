@@ -1,0 +1,84 @@
+From: 4reel <noreply@4reel.local>
+Subject: [PATCH] matcher: replace Triangle outlier filter for prototype
+
+Triangle's license is unsuitable for a distributable commercial image. This
+small local-neighbor filter is only a prototype substitute for its Delaunay
+support graph, and its VO accuracy needs measurement on real camera sequences.
+
+--- a/libviso2/libviso2/src/matcher.cpp
++++ b/libviso2/libviso2/src/matcher.cpp
+@@ -21,6 +21,5 @@
+ 
+ #include "matcher.h"
+-#include "triangle.h"
+ #include "filter.h"
+ 
+ using namespace std;
+@@ -1208,5 +1207,6 @@
+ void Matcher::removeOutliers (vector<Matcher::p_match> &p_matched,int32_t method) {
+   
++#if 0 /* Original Triangle-based code is not built or linked. */
+   // do we have enough points for outlier removal?
+   if (p_matched.size()<=3)
+     return;
+@@ -1375,6 +1375,60 @@
+   free(in.pointlist);
+   free(out.pointlist);
+   free(out.trianglelist);
++#endif
++  if (p_matched.size() <= 2)
++    return;
++
++  // Compare only nearby image-space matches. Keep two consistent neighbors
++  // among the eight nearest; RANSAC still performs the final rejection.
++  const int32_t cell = max(param.match_binsize, 1);
++  const int32_t nx = (dims_c[0] + cell - 1) / cell;
++  const int32_t ny = (dims_c[1] + cell - 1) / cell;
++  vector<vector<int32_t> > bins(nx * ny);
++  for (size_t i = 0; i < p_matched.size(); ++i) {
++    int32_t x = max(0, min(nx - 1, int32_t(p_matched[i].u1c / cell)));
++    int32_t y = max(0, min(ny - 1, int32_t(p_matched[i].v1c / cell)));
++    bins[y * nx + x].push_back(i);
++  }
++  vector<Matcher::p_match> kept;
++  kept.reserve(p_matched.size());
++  const float limit = float(cell * cell);
++  for (size_t i = 0; i < p_matched.size(); ++i) {
++    const Matcher::p_match &a = p_matched[i];
++    int32_t bx = max(0, min(nx - 1, int32_t(a.u1c / cell)));
++    int32_t by = max(0, min(ny - 1, int32_t(a.v1c / cell)));
++    int32_t nearest[8];
++    float distance[8];
++    for (int k = 0; k < 8; ++k) { nearest[k] = -1; distance[k] = limit + 1; }
++    for (int32_t y = max(0, by - 1); y <= min(ny - 1, by + 1); ++y)
++      for (int32_t x = max(0, bx - 1); x <= min(nx - 1, bx + 1); ++x)
++        for (size_t k = 0; k < bins[y * nx + x].size(); ++k) {
++          int32_t j = bins[y * nx + x][k];
++          if (j == int32_t(i)) continue;
++          float du = a.u1c - p_matched[j].u1c;
++          float dv = a.v1c - p_matched[j].v1c;
++          float d2 = du * du + dv * dv;
++          if (d2 > limit) continue;
++          int worst = 0;
++          for (int t = 1; t < 8; ++t)
++            if (distance[t] > distance[worst]) worst = t;
++          if (d2 < distance[worst]) { distance[worst] = d2; nearest[worst] = j; }
++        }
++    int support = 0;
++    for (int k = 0; k < 8; ++k) {
++      if (nearest[k] < 0) continue;
++      const Matcher::p_match &b = p_matched[nearest[k]];
++      float flow = fabs((a.u1c - a.u1p) - (b.u1c - b.u1p)) +
++                   fabs((a.v1c - a.v1p) - (b.v1c - b.v1p));
++      float disparity = fabs((a.u1p - a.u2p) - (b.u1p - b.u2p));
++      float stereo = fabs((a.u1c - a.u2c) - (b.u1c - b.u2c));
++      if ((method == 0 || (method == 1 ? stereo : disparity) < param.outlier_disp_tolerance) &&
++          (method == 1 || flow < param.outlier_flow_tolerance))
++        ++support;
++    }
++    if (support >= 2) kept.push_back(a);
++  }
++  p_matched.swap(kept);
+ }
+ 
+ bool Matcher::parabolicFitting(const uint8_t* I1_du,const uint8_t* I1_dv,const int32_t* dims1,

@@ -1,0 +1,53 @@
+From: 4reel <noreply@4reel.local>
+Subject: [PATCH] matcher: size gradient buffers and pad Sobel SIMD tails
+
+The gradient buffers contain uint8_t pixels. On this ARM32 board, allocating
+sizeof(uint8_t*) bytes per pixel wastes three quarters of each allocation.
+The 5x5 SIMD row filters also read four int16 elements past the temporary
+image and write two bytes past the gradient image, so retain explicit tail
+padding instead of relying on accidental pointer-size overallocation.
+
+--- a/libviso2/libviso2/src/matcher.cpp
++++ b/libviso2/libviso2/src/matcher.cpp
+@@ -656,8 +656,8 @@ void Matcher::computeFeatures (uint8_t *I,const int32_t* dims,int32_t* &max1,int
+   
+   // allocate memory for sobel images and filter images
+   if (!param.half_resolution) {
+-    I_du = (uint8_t*)_mm_malloc(dims[2]*dims[1]*sizeof(uint8_t*),16);
+-    I_dv = (uint8_t*)_mm_malloc(dims[2]*dims[1]*sizeof(uint8_t*),16);
++    I_du = (uint8_t*)_mm_malloc(dims[2]*dims[1]+16,16);
++    I_dv = (uint8_t*)_mm_malloc(dims[2]*dims[1]+16,16);
+     I_f1 = (int16_t*)_mm_malloc(dims[2]*dims[1]*sizeof(int16_t),16);
+     I_f2 = (int16_t*)_mm_malloc(dims[2]*dims[1]*sizeof(int16_t),16);
+     filter::sobel5x5(I,I_du,I_dv,dims[2],dims[1]);
+@@ -666,12 +666,12 @@ void Matcher::computeFeatures (uint8_t *I,const int32_t* dims,int32_t* &max1,int
+   } else {
+     uint8_t* I_matching = createHalfResolutionImage(I,dims);
+     getHalfResolutionDimensions(dims,dims_matching);
+-    I_du      = (uint8_t*)_mm_malloc(dims_matching[2]*dims_matching[1]*sizeof(uint8_t*),16);
+-    I_dv      = (uint8_t*)_mm_malloc(dims_matching[2]*dims_matching[1]*sizeof(uint8_t*),16);
++    I_du      = (uint8_t*)_mm_malloc(dims_matching[2]*dims_matching[1]+16,16);
++    I_dv      = (uint8_t*)_mm_malloc(dims_matching[2]*dims_matching[1]+16,16);
+     I_f1      = (int16_t*)_mm_malloc(dims_matching[2]*dims_matching[1]*sizeof(int16_t),16);
+     I_f2      = (int16_t*)_mm_malloc(dims_matching[2]*dims_matching[1]*sizeof(int16_t),16);
+-    I_du_full = (uint8_t*)_mm_malloc(dims[2]*dims[1]*sizeof(uint8_t*),16);
+-    I_dv_full = (uint8_t*)_mm_malloc(dims[2]*dims[1]*sizeof(uint8_t*),16);
++    I_du_full = (uint8_t*)_mm_malloc(dims[2]*dims[1]+16,16);
++    I_dv_full = (uint8_t*)_mm_malloc(dims[2]*dims[1]+16,16);
+     filter::sobel5x5(I_matching,I_du,I_dv,dims_matching[2],dims_matching[1]);
+     filter::sobel5x5(I,I_du_full,I_dv_full,dims[2],dims[1]);
+     filter::blob5x5(I_matching,I_f1,dims_matching[2],dims_matching[1]);
+--- a/libviso2/libviso2/src/filter.cpp
++++ b/libviso2/libviso2/src/filter.cpp
+@@ -418,7 +418,9 @@ void sobel5x5( const uint8_t* in, uint8_t* out_v, uint8_t* out_h, int w, int h ) {
+   void sobel5x5( const uint8_t* in, uint8_t* out_v, uint8_t* out_h, int w, int h ) {
+-    int16_t* temp_h = (int16_t*)( _mm_malloc( w*h*sizeof( int16_t ), 16 ) );
+-    int16_t* temp_v = (int16_t*)( _mm_malloc( w*h*sizeof( int16_t ), 16 ) );
++    int16_t* temp_h = (int16_t*)( _mm_malloc( (w*h+16)*sizeof( int16_t ), 16 ) );
++    int16_t* temp_v = (int16_t*)( _mm_malloc( (w*h+16)*sizeof( int16_t ), 16 ) );
+     detail::convolve_cols_5x5( in, temp_v, temp_h, w, h );
++    memset( temp_h+w*h, 0, 16*sizeof( int16_t ) );
++    memset( temp_v+w*h, 0, 16*sizeof( int16_t ) );
+     detail::convolve_12021_row_5x5_16bit( temp_v, out_v, w, h );
+     detail::convolve_14641_row_5x5_16bit( temp_h, out_h, w, h );
+     _mm_free( temp_h );

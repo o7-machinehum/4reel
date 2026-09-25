@@ -1,0 +1,22 @@
+From: 4reel contributors
+Subject: [PATCH] media: rockchip: cif: reject absent RV1106 scaler channels
+
+RV1103/RV1106 implements only scaler channel 0. The TRM marks bits 31:8
+of VICAP_SCL_CH_CTRL reserved and provides no CH1..3 DMA registers.
+The generic driver exposes those nodes anyway; reject STREAMON instead of
+silently succeeding with no frames.
+
+---
+diff --git a/drivers/media/platform/rockchip/cif/cif-scale.c b/drivers/media/platform/rockchip/cif/cif-scale.c
+--- a/drivers/media/platform/rockchip/cif/cif-scale.c
++++ b/drivers/media/platform/rockchip/cif/cif-scale.c
+@@ -1287,6 +1287,9 @@ int rkcif_scale_start(struct rkcif_scale_vdev *scale_vdev)
+ 	struct rkcif_device *dev = scale_vdev->cifdev;
+ 	int ret = 0;
+ 
++	if (dev->chip_id == CHIP_RV1106_CIF && scale_vdev->ch != 0)
++		return -EOPNOTSUPP;
++
+ 	rkcif_scale_channel_init(scale_vdev);
+ 	if (dev->chip_id >= CHIP_RV1126B_CIF)
+ 		ret = rkcif_scale_channel_set_rv1126b(scale_vdev);

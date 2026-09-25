@@ -146,6 +146,7 @@
 		reg = <0x10>;
 		clocks = <&ov9281_xvclk0>;
 		clock-names = "xvclk";
+		rotation = <180>;
 		rockchip,camera-module-index = <0>;
 		rockchip,camera-module-facing = "back";
 		rockchip,camera-module-name = "4reel-ov9281";
@@ -267,6 +268,10 @@
 };
 
 &rng {
+	status = "okay";
+};
+
+&rve {
 	status = "okay";
 };
 

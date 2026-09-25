@@ -1,0 +1,7 @@
+config BR2_PACKAGE_ROCKCHIP_RVE
+	bool "Rockchip RVE userspace library"
+	depends on BR2_arm
+	depends on BR2_ARM_EABIHF
+	help
+	  Pinned vendor static library for the RV1103/RV1106 vision engine.
+	  The hardware library is binary-only; it is linked into 4reel-web.

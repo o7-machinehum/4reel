@@ -1,0 +1,10 @@
+config BR2_PACKAGE_FOURREEL_VO
+	bool "4reel stereo visual odometry"
+	depends on BR2_INSTALL_LIBSTDCPP
+	help
+	  Small on-device stereo visual odometry experiment using libviso2.
+	  It requires rectified, synchronized cameras and measured calibration.
+	  It is not a SLAM system and has no loop closure or NPU inference.
+
+comment "4reel stereo visual odometry needs a C++ toolchain"
+	depends on !BR2_INSTALL_LIBSTDCPP

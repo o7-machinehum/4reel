@@ -1,0 +1,117 @@
+From: 4reel contributors
+Subject: [PATCH] dma-buf: cma: support physical-address RVE buffers
+
+Implement the vendor physical-address query, restricted to CAP_SYS_RAWIO.
+Validate exporter ownership and retain a DMA mapping so DMA_BUF_IOCTL_SYNC
+works even though the legacy RVE driver does not attach imported buffers.
+Release that mapping when the allocation is freed.
+
+---
+diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
+--- a/drivers/dma-buf/heaps/cma_heap.c
++++ b/drivers/dma-buf/heaps/cma_heap.c
+@@ -9,6 +9,7 @@
+  * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+  *	Andrew F. Davis <afd@ti.com>
+  */
++#include <linux/capability.h>
+ #include <linux/cma.h>
+ #include <linux/dma-buf.h>
+ #include <linux/dma-heap.h>
+@@ -38,6 +39,8 @@
+ 	pgoff_t pagecount;
+ 	int vmap_cnt;
+ 	void *vaddr;
++	dma_addr_t rve_dma;
++	bool rve_mapped;
+ };
+ 
+ struct dma_heap_attachment {
+@@ -128,6 +131,9 @@
+ 
+ 	if (buffer->vmap_cnt)
+ 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
++	if (buffer->rve_mapped)
++		dma_sync_single_for_cpu(dma_heap_get_dev(buffer->heap->heap),
++					buffer->rve_dma, buffer->len, direction);
+ 
+ 	list_for_each_entry(a, &buffer->attachments, list) {
+ 		if (!a->mapped)
+@@ -149,6 +155,9 @@
+ 
+ 	if (buffer->vmap_cnt)
+ 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
++	if (buffer->rve_mapped)
++		dma_sync_single_for_device(dma_heap_get_dev(buffer->heap->heap),
++					   buffer->rve_dma, buffer->len, direction);
+ 
+ 	list_for_each_entry(a, &buffer->attachments, list) {
+ 		if (!a->mapped)
+@@ -254,6 +263,9 @@
+ 	}
+ 
+ 	/* free page list */
++	if (buffer->rve_mapped)
++		dma_unmap_page(dma_heap_get_dev(cma_heap->heap), buffer->rve_dma,
++			       buffer->len, DMA_BIDIRECTIONAL);
+ 	kfree(buffer->pages);
+ 	/* release memory */
+ 	cma_release(cma_heap->cma, buffer->cma_pages, buffer->pagecount);
+@@ -363,8 +375,49 @@
+ 	return ERR_PTR(ret);
+ }
+ 
++#if IS_ENABLED(CONFIG_NO_GKI)
++/* RVE has no IOMMU and the vendor ABI takes contiguous physical addresses. */
++static int cma_heap_get_phys(struct dma_heap *heap, struct dma_heap_phys_data *phys)
++{
++	struct dma_buf *dmabuf;
++	struct cma_heap_buffer *buffer;
++	int ret = -EINVAL;
++
++	if (!capable(CAP_SYS_RAWIO))
++		return -EPERM;
++	dmabuf = dma_buf_get(phys->fd);
++	if (IS_ERR(dmabuf))
++		return PTR_ERR(dmabuf);
++	if (dmabuf->ops != &cma_heap_buf_ops)
++		goto out;
++	buffer = dmabuf->priv;
++	if (buffer->heap != dma_heap_get_drvdata(heap))
++		goto out;
++	mutex_lock(&buffer->lock);
++	if (!buffer->rve_mapped) {
++		buffer->rve_dma = dma_map_page(dma_heap_get_dev(heap),
++			buffer->cma_pages, 0, buffer->len, DMA_BIDIRECTIONAL);
++		if (dma_mapping_error(dma_heap_get_dev(heap), buffer->rve_dma)) {
++			mutex_unlock(&buffer->lock);
++			ret = -EIO;
++			goto out;
++		}
++		buffer->rve_mapped = true;
++	}
++	phys->paddr = buffer->rve_dma;
++	mutex_unlock(&buffer->lock);
++	ret = 0;
++out:
++	dma_buf_put(dmabuf);
++	return ret;
++}
++#endif
++
+ static const struct dma_heap_ops cma_heap_ops = {
+ 	.allocate = cma_heap_allocate,
++#if IS_ENABLED(CONFIG_NO_GKI)
++	.get_phys = cma_heap_get_phys,
++#endif
+ };
+ 
+ static int __add_cma_heap(struct cma *cma, void *data)
+@@ -388,6 +441,7 @@
+ 		kfree(cma_heap);
+ 		return ret;
+ 	}
++	dma_coerce_mask_and_coherent(dma_heap_get_dev(cma_heap->heap), DMA_BIT_MASK(32));
+ 
+ 	return 0;
+ }

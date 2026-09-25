@@ -5,11 +5,18 @@ order, after extracting each source tree.
 
 ## Linux
 
-There is no Linux patch queue. The pinned Rockchip 6.1 source already contains
-the RV1103/RV1106 clock, pinctrl, and device-tree support. The obsolete
-mainline RV1103B queue was removed because it targets different silicon and
-conflicts with the vendor source. `linux/linux.hash` verifies the pinned source
-archive and its license files.
+The pinned Rockchip 6.1 source already contains the RV1103/RV1106 clock,
+pinctrl, and device-tree support. The Linux patch queue only adds board-required
+behavior missing from that vendor tree. `linux/linux.hash` verifies the pinned
+source archive and its license files.
+
+The board patches make the left-camera rotation persistent and make CIF scale
+capture start its sensor/CSI source without full-resolution memory DMA.
+RV1103/RV1106 has one shared scaler: the left camera uses it; the right camera
+uses normal CSI capture and software downsampling. Both sensors use VC0 on
+their separate CSI receivers.
+The CMA heap patch supplies the physical-address query and cache synchronization
+needed by the RVE SAD backend; physical-address access requires root privileges.
 
 ## U-Boot
 

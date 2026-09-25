@@ -1,0 +1,25 @@
+#!/bin/sh
+
+DAEMON=/usr/bin/4reel-web
+PIDFILE=/var/run/4reel-web.pid
+
+case "$1" in
+	start)
+		printf 'Starting 4reel web dashboard: '
+		start-stop-daemon -S -q -b -m -p "$PIDFILE" -x "$DAEMON" -- --bind 192.168.77.1
+		[ $? = 0 ] && echo OK || { echo FAIL; exit 1; }
+		;;
+	stop)
+		printf 'Stopping 4reel web dashboard: '
+		start-stop-daemon -K -q -p "$PIDFILE"
+		[ $? = 0 ] && echo OK || { echo FAIL; exit 1; }
+		;;
+	restart)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac

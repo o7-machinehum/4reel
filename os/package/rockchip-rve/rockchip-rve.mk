@@ -1,0 +1,17 @@
+ROCKCHIP_RVE_VERSION = 824b817f889c2cbff1d48fcdb18ab494a68f69d1
+ROCKCHIP_RVE_SITE = https://raw.githubusercontent.com/LuckfoxTECH/luckfox-pico/$(ROCKCHIP_RVE_VERSION)/media/ive/ive/lib
+ROCKCHIP_RVE_SOURCE = librve.a
+ROCKCHIP_RVE_LICENSE = Proprietary
+ROCKCHIP_RVE_REDISTRIBUTE = NO
+ROCKCHIP_RVE_INSTALL_STAGING = YES
+ROCKCHIP_RVE_INSTALL_TARGET = NO
+
+define ROCKCHIP_RVE_EXTRACT_CMDS
+	$(INSTALL) -m 0644 $(ROCKCHIP_RVE_DL_DIR)/$(ROCKCHIP_RVE_SOURCE) $(@D)/librve.a
+endef
+
+define ROCKCHIP_RVE_INSTALL_STAGING_CMDS
+	$(INSTALL) -D -m 0644 $(@D)/librve.a $(STAGING_DIR)/usr/lib/librve.a
+endef
+
+$(eval $(generic-package))

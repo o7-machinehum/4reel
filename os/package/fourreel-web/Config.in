@@ -1,0 +1,7 @@
+config BR2_PACKAGE_FOURREEL_WEB
+	bool "4reel camera web dashboard"
+	depends on BR2_arm && BR2_ARM_EABIHF
+	select BR2_PACKAGE_ROCKCHIP_RVE
+	help
+	  Device-hosted stereo preview, approximate calibration and depth map,
+	  camera controls, and accelerometer status. Listens on USB Ethernet only.
