@@ -1,0 +1,118 @@
+From: 4reel <dev@4reel.local>
+Subject: [PATCH] thermal: rockchip: add RV1106 diagnostic readings-only mode
+
+Opt in with the board-local machinehum,readings-only property. Keep TSADC
+conversions available while disabling alarm and CRU/GPIO shutdown outputs,
+including across suspend/resume and shutdown. Reject the property on other
+TSADC variants. The board must also remove software thermal trips and policy
+consumers; this option intentionally provides no over-temperature protection.
+
+--- a/drivers/thermal/rockchip_thermal.c
++++ b/drivers/thermal/rockchip_thermal.c
+@@ -183,6 +183,7 @@
+  * @regs: the base address of tsadc controller
+  * @tshut_mode: the hardware-controlled shutdown mode (0:CRU 1:GPIO)
+  * @tshut_polarity: the hardware-controlled active polarity (0:LOW 1:HIGH)
++ * @readings_only: board diagnostic mode without alarms or hardware shutdown
+  * @pinctrl: the pinctrl of tsadc
+  * @gpio_state: pinctrl select gpio function
+  * @otp_state: pinctrl select otp out function
+@@ -203,6 +204,7 @@
+ 
+ 	enum tshut_mode tshut_mode;
+ 	enum tshut_polarity tshut_polarity;
++	bool readings_only;
+ 	struct pinctrl *pinctrl;
+ 	struct pinctrl_state *gpio_state;
+ 	struct pinctrl_state *otp_state;
+@@ -2480,6 +2482,9 @@
+ 	struct rockchip_thermal_data *thermal = sensor->thermal;
+ 	const struct rockchip_tsadc_chip *tsadc = thermal->chip;
+ 
++	if (thermal->readings_only)
++		return 0;
++
+ 	dev_dbg(&thermal->pdev->dev, "%s: sensor %d: low: %d, high %d\n",
+ 		__func__, sensor->id, low, high);
+ 
+@@ -2630,6 +2635,13 @@
+ 	u32 shut_temp, tshut_mode, tshut_polarity;
+ 	int i;
+ 
++	thermal->readings_only = of_property_read_bool(np, "machinehum,readings-only");
++	if (thermal->readings_only &&
++	    !of_device_is_compatible(np, "rockchip,rv1106-tsadc"))
++		return -EINVAL;
++	if (thermal->readings_only)
++		dev_warn(dev, "readings-only mode: thermal shutdown disabled\n");
++
+ 	if (of_property_read_u32(np, "rockchip,hw-tshut-temp", &shut_temp)) {
+ 		dev_warn(dev,
+ 			 "Missing tshut temp property, using default %d\n",
+@@ -2689,20 +2701,36 @@
+ 	return 0;
+ }
+ 
++static int rockchip_thermal_configure_tshut(struct rockchip_thermal_data *thermal,
++					  int id, int temp)
++{
++	const struct rockchip_tsadc_chip *tsadc = thermal->chip;
++
++	if (thermal->readings_only) {
++		/* RV1106/RV1103: keep conversions enabled, but mask both routes. */
++		writel_relaxed(TSADCV2_INT_SRC_EN_MASK(id),
++			       thermal->regs + TSADCV3_HSHUT_GPIO_INT_EN);
++		writel_relaxed(TSADCV2_INT_SRC_EN_MASK(id),
++			       thermal->regs + TSADCV3_HSHUT_CRU_INT_EN);
++		writel_relaxed(TSADCV2_INT_SRC_EN_MASK(id),
++			       thermal->regs + TSADCV3_HT_INT_EN);
++		return 0;
++	}
++
++	tsadc->set_tshut_mode(thermal->grf, id, thermal->regs,
++			      thermal->tshut_mode);
++	return tsadc->set_tshut_temp(&tsadc->table, id, thermal->regs, temp);
++}
++
+ static int
+ rockchip_thermal_register_sensor(struct platform_device *pdev,
+ 				 struct rockchip_thermal_data *thermal,
+ 				 struct rockchip_thermal_sensor *sensor,
+ 				 int id)
+ {
+-	const struct rockchip_tsadc_chip *tsadc = thermal->chip;
+ 	int error;
+ 
+-	tsadc->set_tshut_mode(thermal->grf, id, thermal->regs,
+-			      thermal->tshut_mode);
+-
+-	error = tsadc->set_tshut_temp(&tsadc->table, id, thermal->regs,
+-				      sensor->tshut_temp);
++	error = rockchip_thermal_configure_tshut(thermal, id, sensor->tshut_temp);
+ 	if (error)
+ 		dev_err(&pdev->dev, "%s: invalid tshut=%d, error=%d\n",
+ 			__func__, sensor->tshut_temp, error);
+@@ -2939,6 +2967,9 @@
+ 	struct rockchip_thermal_data *thermal = platform_get_drvdata(pdev);
+ 	int i;
+ 
++	if (thermal->readings_only)
++		return;
++
+ 	for (i = 0; i < thermal->chip->chn_num; i++) {
+ 		int id = thermal->sensors[i].id;
+ 
+@@ -2996,12 +3027,7 @@
+ 		int id = thermal->sensors[i].id;
+ 		int tshut_temp = thermal->sensors[i].tshut_temp;
+ 
+-		thermal->chip->set_tshut_mode(thermal->grf, id, thermal->regs,
+-					      thermal->tshut_mode);
+-
+-		error = thermal->chip->set_tshut_temp(&thermal->chip->table,
+-						      id, thermal->regs,
+-						      tshut_temp);
++		error = rockchip_thermal_configure_tshut(thermal, id, tshut_temp);
+ 		if (error)
+ 			dev_err(dev, "%s: invalid tshut=%d, error=%d\n",
+ 				__func__, tshut_temp, error);
