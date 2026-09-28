@@ -30,5 +30,7 @@ ee5d46b45ec0c63f8f9dd1e816e0dac3452ccc3d
 
 Keeping the full series preserves the dependencies between the early RV1103B
 patches and the later RV1106/RV1103 changes. The RV1103G board DTS, default
-environment, and Kconfig fragment override the reference boards without
-modifying the submitted patches.
+environment, and standalone `uboot_defconfig` configure 4reel without loading
+the Luckfox defconfig or modifying the submitted patches. The existing
+`CONFIG_TARGET_LUCKFOX_PICO_RV1103` selection supplies the shared 64 MiB board
+initialization code; the device tree and boot environment are 4reel's.

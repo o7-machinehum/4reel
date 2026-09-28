@@ -11,6 +11,12 @@ make
 
 The SD-card image is written to `os/buildroot/output/images/sdcard.img`.
 
+Linux and U-Boot use standalone configs in `board/rv1103g/{linux,uboot}_defconfig`.
+After menuconfig changes, save them with `make linux-update-defconfig` or
+`make uboot-update-defconfig`. Omit the machine-specific
+`CONFIG_ENV_DEFAULT_ENV_TEXT_FILE` line from the saved U-Boot config; Buildroot
+sets it from `uboot.env`.
+
 The device-hosted camera dashboard is at `http://192.168.77.1:8080/`;
 [calibration instructions](board/rv1103g/WEB_DEPTH.md) cover its first depth map.
 

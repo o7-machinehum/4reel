@@ -45,6 +45,9 @@
     .slot-head label { display: flex; align-items: center; gap: .4rem; }
     #error { padding: .7rem; margin-bottom: 1rem; color: #ffe5e5; background: #692e35; border-radius: .4rem; white-space: pre-wrap; }
     #error[hidden] { display: none; }
+    #calibration-feedback { padding: .7rem; white-space: pre-wrap; background: #11181d; border-radius: .4rem; }
+    #calibration-feedback[data-kind=error] { color: #ffe5e5; background: #692e35; }
+    #calibration-feedback[data-kind=success] { color: #c7f4d4; background: #204c34; }
     #status { color: #b9dce8; }
     .metric { display: inline-block; margin-right: 1rem; }
     .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .55rem; margin: .7rem 0; }
@@ -141,9 +144,10 @@
         <li>Move that target to a measured <strong>far</strong> distance and repeat. Enter both distances in millimetres, then select Calibrate.</li>
       </ol>
       <p class="muted">Use a static scene: the two sensors have independent clocks. Two distances give an approximate depth scale and offset; this does not correct lens distortion, rotation, or full camera intrinsics. For accurate metric depth, use a full stereo calibration.</p>
-      <form id="calibration">
+      <form id="calibration" novalidate>
         <div id="snapshots"></div>
         <button type="submit">Calibrate</button>
+        <p id="calibration-feedback" role="status" aria-live="polite">Take both snapshots, select the same feature in each camera, and enter the two distances.</p>
       </form>
     </section>
 
@@ -195,20 +199,30 @@
       $('error').hidden = !message;
     }
 
+    function showCalibration(message, kind = 'info') {
+      $('calibration-feedback').textContent = message;
+      $('calibration-feedback').dataset.kind = kind;
+    }
+
     async function checked(response) {
-      if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+      if (!response.ok) {
+        let message = (await response.text()).trim();
+        try { message = JSON.parse(message).error || message; } catch (_) {}
+        throw new Error(message || `HTTP ${response.status}`);
+      }
       return response;
     }
 
     function post(path, values) {
       return fetch(path, {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-4reel-control': '1' },
         body: new URLSearchParams(values)
       }).then(checked);
     }
 
-    async function action(button, work) {
+    async function action(button, work, onError = showError) {
       button.disabled = true;
       actionError = '';
       showError('');
@@ -218,6 +232,7 @@
       } catch (error) {
         actionError = error.message;
         showError(actionError);
+        if (onError !== showError) onError(actionError);
       } finally {
         button.disabled = false;
       }
@@ -425,7 +440,10 @@
           swapped: swapped ? '1' : '0'
         });
         settingsDirty = false;
-        if (swapped !== wasSwapped) clearSnapshots();
+        if (swapped !== wasSwapped) {
+          clearSnapshots();
+          showCalibration('Camera order changed: calibration was cleared. Take new near and far snapshots and calibrate again.', 'error');
+        }
       });
     });
 
@@ -459,18 +477,30 @@
 
     for (const slot of ['near', 'far']) {
       $(`snap-${slot}`).addEventListener('click', event => action(event.currentTarget, async () => {
+        showCalibration(`Taking ${slot} snapshot…`);
         await post('/api/snapshot', { slot });
         for (const side of ['left', 'right']) {
+          $(`${slot}-${side}`).hidden = true;
+          $(`${slot}-${side}-empty`).hidden = false;
           $(`${slot}_${side[0]}x`).value = '';
           $(`${slot}_${side[0]}y`).value = '';
           $(`${slot}-${side}-mark`).hidden = true;
           setImage(`${slot}-${side}`, `/api/snapshot/${slot}/${side}.bmp?t=${Date.now()}`);
         }
-      }));
+      }, message => showCalibration(`${slot} snapshot failed: ${message}`, 'error')));
       for (const side of ['left', 'right']) {
         const img = $(`${slot}-${side}`);
-        img.onload = () => { img.hidden = false; $(`${slot}-${side}-empty`).hidden = true; };
-        img.onerror = () => { img.hidden = true; $(`${slot}-${side}-empty`).hidden = false; };
+        img.onload = () => {
+          img.hidden = false;
+          $(`${slot}-${side}-empty`).hidden = true;
+          if (['left', 'right'].every(camera => !$(`${slot}-${camera}`).hidden))
+            showCalibration(`${slot} snapshot ready. Select the same physical feature in both images and enter its distance in millimetres.`);
+        };
+        img.onerror = () => {
+          img.hidden = true;
+          $(`${slot}-${side}-empty`).hidden = false;
+          showCalibration(`Could not load the ${slot} ${side} snapshot. Try taking the snapshot again.`, 'error');
+        };
         img.addEventListener('click', event => {
           if (!img.naturalWidth) return;
           const rect = img.getBoundingClientRect();
@@ -489,24 +519,33 @@
     $('calibration').addEventListener('submit', event => {
       event.preventDefault();
       const form = event.currentTarget;
-      if (!form.reportValidity()) return;
+      if (!form.checkValidity()) {
+        showCalibration('Missing or invalid measurements: enter both positive distances and select one feature in each of the four snapshot images.', 'error');
+        form.reportValidity();
+        return;
+      }
       const near = Number($('near_mm').value);
       const far = Number($('far_mm').value);
-      if (near >= far) { showError('Near distance must be less than far distance.'); return; }
+      if (near >= far) { showCalibration('Near distance must be less than far distance.', 'error'); return; }
       for (const slot of ['near', 'far']) {
         for (const side of ['left', 'right']) {
           const img = $(`${slot}-${side}`);
           const x = Number($(`${slot}_${side[0]}x`).value);
           const y = Number($(`${slot}_${side[0]}y`).value);
-          if (!img.naturalWidth || x >= img.naturalWidth || y >= img.naturalHeight) {
-            showError(`Take a ${slot} snapshot and select valid ${side} image coordinates.`);
+          if (img.hidden || !img.complete || !img.naturalWidth || x >= img.naturalWidth || y >= img.naturalHeight) {
+            showCalibration(`Take a ${slot} snapshot and select valid ${side} image coordinates.`, 'error');
             return;
           }
         }
       }
+      const nearDisparity = Number($('near_lx').value) - Number($('near_rx').value);
+      const farDisparity = Number($('far_lx').value) - Number($('far_rx').value);
+      const measurements = `Measured disparity: near ${nearDisparity} px, far ${farDisparity} px. Near must exceed far by more than 1 px; select matching features and check camera order.`;
       action(form.querySelector('button[type=submit]'), async () => {
+        showCalibration('Solving and saving calibration…');
         await post('/api/calibrate', Object.fromEntries(new FormData(form)));
-      });
+        showCalibration('Calibration saved and applied. Check a target at a third measured distance to verify accuracy. Left/right previews are not rectified by this approximate calibration.', 'success');
+      }, message => showCalibration(`Calibration failed: ${message}\n${measurements}`, 'error'));
     });
 
     poll();
