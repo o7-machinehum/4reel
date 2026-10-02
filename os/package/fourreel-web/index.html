@@ -8,6 +8,15 @@
     :root { color-scheme: dark; font: 16px/1.45 system-ui, sans-serif; background: #101519; color: #edf2f4; }
     * { box-sizing: border-box; }
     body { margin: 0; }
+    [hidden] { display: none !important; }
+    .tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .tabs [aria-selected=true] { background: #d0edf5; color: #101519; }
+    select { font: inherit; padding: .45rem; color: inherit; background: #11181d; }
+    .link-button { min-height: auto; padding: 0; background: none; border: none; color: #8bd8f0; text-decoration: underline; }
+    #focus-viewport { overflow: auto; max-height: 75vh; background: #0a0e10; }
+    #focus-image { display: block; width: 100%; height: auto; }
+    #focus-viewport.native #focus-image { width: 1280px; max-width: none; }
+    #focus-feedback { white-space: pre-wrap; }
     header, main { max-width: 1200px; margin: auto; padding: 1rem; }
     header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.5rem; }
     h1 { font-size: 1.5rem; margin: 0; }
@@ -29,6 +38,8 @@
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
     figure { margin: 0; min-width: 0; }
     figcaption { padding: .35rem 0; }
+    .depth-key { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .35rem; margin-top: .5rem; text-align: center; font-size: .85rem; }
+    .depth-swatch { display: block; height: .85rem; margin-bottom: .2rem; border: 1px solid #667981; border-radius: .2rem; }
     .photo { position: relative; width: 100%; aspect-ratio: 8 / 5; background: #0a0e10; overflow: hidden; border: 1px solid #39474e; border-radius: .4rem; }
     .photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .photo img[hidden] { display: none; }
@@ -76,23 +87,19 @@
   </header>
   <main>
     <div id="error" role="alert" hidden></div>
-
-    <section class="panel" aria-labelledby="control-title">
-      <h2 id="control-title">Camera controls</h2>
-      <div class="row">
-        <button id="capture" type="button" aria-pressed="false">Start capture</button>
-        <form id="settings" class="row">
-          <label class="check"><input id="auto-exposure" name="auto_exposure" type="checkbox"> Auto exposure</label>
-          <label>Exposure <input id="exposure" name="exposure" type="number" min="4" max="3652" step="1" required></label>
-          <label>Gain <input id="gain" name="gain" type="number" min="16" max="248" step="1" required></label>
-          <label class="check"><input id="swapped" name="swapped" type="checkbox"> Swap cameras</label>
-          <button type="submit">Apply settings</button>
-        </form>
-      </div>
-      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
-      <p><span class="metric">Frames: <span id="frames">—</span></span><span class="metric">Pair timing: <span id="pair-delta">—</span></span></p>
-    </section>
-
+    <nav class="tabs" role="tablist" aria-label="Camera tools">
+      <button id="tab-view" role="tab" aria-selected="true" aria-controls="panel-view" data-tab="view">Viewing / Depth</button>
+      <button id="tab-profiling" role="tab" aria-selected="false" aria-controls="panel-profiling" tabindex="-1" data-tab="profiling">Profiling</button>
+      <button id="tab-calibration" role="tab" aria-selected="false" aria-controls="panel-calibration" tabindex="-1" data-tab="calibration">Calibration</button>
+      <button id="tab-focus" role="tab" aria-selected="false" aria-controls="panel-focus" tabindex="-1" data-tab="focus">Focus</button>
+    </nav>
+    <div class="panel row">
+      <button id="capture" type="button" aria-pressed="false">Start depth capture</button>
+      <span id="capture-mode">Depth mode · 160 × 100</span>
+      <span class="metric">Frames: <span id="frames">—</span></span>
+      <span class="metric">Pair timing: <span id="pair-delta">—</span></span>
+    </div>
+    <div id="panel-view" role="tabpanel" aria-labelledby="tab-view">
     <section class="panel" aria-labelledby="live-title">
       <h2 id="live-title">Live images</h2>
       <div class="grid">
@@ -100,14 +107,37 @@
         <figure><div class="photo"><img id="live-right" alt="Live right camera" hidden><span id="empty-right" class="empty">Start capture to view the right camera</span></div><figcaption>Right camera</figcaption></figure>
       </div>
     </section>
-
+    <section class="panel" aria-labelledby="depth-title">
+      <h2 id="depth-title">Depth map</h2>
+      <div class="grid">
+        <figure>
+          <div class="photo"><img id="live-depth" alt="Color depth map" hidden><span id="empty-depth" class="empty">Start capture to view depth</span></div>
+          <figcaption>
+            <div id="depth-key" class="depth-key" aria-label="Depth colour to distance legend"></div>
+            <small id="depth-key-note">Calibrate to show approximate distances. Black = unreliable.</small>
+          </figcaption>
+        </figure>
+        <div>
+          <p id="calibration-state">Calibration: checking…</p>
+          <p class="muted">This is an approximate two-point stereo depth estimate. Textureless, reflective, moving, or occluded areas may have no reliable depth.</p>
+          <p><a href="/api/depth.pgm">Download 16-bit depth map (millimetres, 0 = invalid)</a></p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="acc-title">
+      <h2 id="acc-title">Accelerometer</h2>
+      <p id="accel" aria-live="polite">Waiting for sensor data…</p>
+      <p class="muted">Values are sensor-axis acceleration in m/s², not world coordinates.</p>
+    </section>
+    </div>
+    <div id="panel-profiling" role="tabpanel" aria-labelledby="tab-profiling" hidden>
     <section class="panel" aria-labelledby="diag-title">
       <h2 id="diag-title">Performance diagnostics</h2>
       <p id="diag-summary">Waiting for timing data…</p>
       <p><span id="diag-backend">Depth backend: waiting…</span> · <span id="diag-sad">SAD: —</span></p>
       <div class="diag-grid">
-        <div class="diag-card"><small>Sensor → processing (L: CIF, R: CPU)</small><output id="diag-resolution">—</output></div>
-        <div class="diag-card"><small>Depth output</small><output id="diag-output-fps">—</output></div>
+        <div class="diag-card"><small>Capture → processing</small><output id="diag-resolution">—</output></div>
+        <div class="diag-card"><small>Processed output</small><output id="diag-output-fps">—</output></div>
         <div class="diag-card"><small>Camera input FPS</small><output id="diag-raw-fps">—</output></div>
         <div class="diag-card"><small>Pipeline work/output</small><output id="diag-pair-total">—</output></div>
         <div class="diag-card"><small>Skipped input frames</small><output id="diag-skipped">—</output></div>
@@ -121,21 +151,22 @@
         <div class="diag-row"><span>HTTP image</span><span class="diag-track"><span id="diag-http-image-bar" class="diag-fill"></span></span><span id="diag-http-image" class="diag-time">—</span></div>
         <div class="diag-row"><span>HTTP status</span><span class="diag-track"><span id="diag-http-status-bar" class="diag-fill"></span></span><span id="diag-http-status" class="diag-time">—</span></div>
       </div>
-      <p class="muted">Bars are relative to the slowest measured stage. The 30 FPS processing target has a 33 ms frame budget.</p>
+      <p class="muted">Bars are relative to the slowest measured stage. Depth processing targets 30 FPS; full-resolution focus conversion is capped at 4 FPS before USB transfer.</p>
     </section>
-
-    <section class="panel" aria-labelledby="depth-title">
-      <h2 id="depth-title">Depth map</h2>
-      <div class="grid">
-        <figure><div class="photo"><img id="live-depth" alt="Color depth map" hidden><span id="empty-depth" class="empty">Start capture to view depth</span></div><figcaption>Depth visualization: red nearer, blue farther, black unreliable</figcaption></figure>
-        <div>
-          <p id="calibration-state">Calibration: checking…</p>
-          <p class="muted">This is an approximate two-point stereo depth estimate. Textureless, reflective, moving, or occluded areas may have no reliable depth.</p>
-          <p><a href="/api/depth.pgm">Download 16-bit depth map (millimetres, 0 = invalid)</a></p>
-        </div>
+    </div>
+    <div id="panel-calibration" role="tabpanel" aria-labelledby="tab-calibration" hidden>
+    <section class="panel" aria-labelledby="control-title">
+      <h2 id="control-title">Camera controls</h2>
+      <div class="row">
+        <form id="settings" class="row">
+          <label class="check"><input id="auto-exposure" name="auto_exposure" type="checkbox"> Auto exposure</label>
+          <label>Exposure <input id="exposure" name="exposure" type="number" min="4" max="3652" step="1" required></label>
+          <label>Gain <input id="gain" name="gain" type="number" min="16" max="248" step="1" required></label>
+          <button type="submit">Apply settings</button>
+        </form>
       </div>
+      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
     </section>
-
     <section class="panel" aria-labelledby="cal-title">
       <h2 id="cal-title">Calibrate depth</h2>
       <ol>
@@ -150,23 +181,68 @@
         <p id="calibration-feedback" role="status" aria-live="polite">Take both snapshots, select the same feature in each camera, and enter the two distances.</p>
       </form>
     </section>
-
-    <section class="panel" aria-labelledby="acc-title">
-      <h2 id="acc-title">Accelerometer</h2>
-      <p id="accel" aria-live="polite">Waiting for sensor data…</p>
-      <p class="muted">Values are sensor-axis acceleration in m/s², not world coordinates.</p>
-    </section>
+    </div>
+    <div id="panel-focus" role="tabpanel" aria-labelledby="tab-focus" hidden>
+      <section class="panel" aria-labelledby="focus-title">
+        <h2 id="focus-title">Full-resolution lens focus</h2>
+        <div class="row">
+          <label>Camera <select id="focus-camera"><option value="left">Left</option><option value="right">Right</option></select></label>
+          <button id="focus-capture" type="button" aria-pressed="false">Start focus capture</button>
+          <label class="check"><input id="focus-native" type="checkbox"> 1:1 pixels (scroll to inspect)</label>
+          <a id="focus-download" href="/api/focus.bmp" download="focus.bmp" hidden>Download full-resolution frame</a>
+        </div>
+        <p>Native <strong>1280 × 800</strong>, one camera at a time. Turn the lens gently to focus; these lenses have no motorized autofocus.</p>
+        <p class="muted">Depth matching pauses while focusing. Full-resolution BMP frames are about 1 MB, so updates are slower over 12 Mbps USB. Auto-exposure/gain controls are on <button class="link-button" id="focus-settings" type="button">Calibration</button>.</p>
+        <p id="focus-feedback" role="status">Select a camera and start focus capture. Switching tabs does not change capture mode.</p>
+        <div id="focus-viewport"><img id="focus-image" alt="Full-resolution selected camera for manual focusing" hidden></div>
+        <p class="muted">Finish focusing both lenses before calibration. If you change focus after calibration, recalibrate.</p>
+      </section>
+    </div>
   </main>
   <script>
     'use strict';
     const $ = id => document.getElementById(id);
-    let state = { capture: false, frame: -1, swapped: false };
+    let state = { capture: false, frame: -1 };
     let shownFrame = -1;
+    let activeTab = 'view';
+    let focusShownFrame = -1;
+    let focusLastRequest = 0;
+    let focusImageError = false;
     let settingsDirty = false;
     let actionError = '';
     let statusRequest = null;
     const pollIntervalMs = 100;
     const liveSides = ['left', 'right', 'depth'];
+
+    function selectTab(name) {
+      activeTab = name;
+      for (const button of document.querySelectorAll('[role=tab]')) {
+        const selected = button.dataset.tab === name;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        $(`panel-${button.dataset.tab}`).hidden = !selected;
+      }
+      shownFrame = focusShownFrame = -1;
+    }
+    const tabs = [...document.querySelectorAll('[role=tab]')];
+    for (const [index, button] of tabs.entries()) {
+      button.addEventListener('click', () => selectTab(button.dataset.tab));
+      button.addEventListener('keydown', event => {
+        let next;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        selectTab(tabs[next].dataset.tab);
+        tabs[next].focus();
+      });
+    }
+    $('focus-settings').addEventListener('click', () => selectTab('calibration'));
+    $('focus-native').addEventListener('change', () => {
+      $('focus-viewport').classList.toggle('native', $('focus-native').checked);
+    });
 
     for (const slot of ['near', 'far']) {
       $('snapshots').insertAdjacentHTML('beforeend', `
@@ -326,7 +402,9 @@
       const rawMinimum = rawRates.length ? Math.min(...rawRates) : null;
       const processingStages = validStages.filter(stage => !stage[0].startsWith('http-'));
       const slowest = processingStages.reduce((current, stage) => !current || stage[2] > current[2] ? stage : current, null);
-      if (outputFps !== null && outputFps >= 28.0) {
+      if (state.mode === 'focus') {
+        $('diag-summary').textContent = 'Focus mode: one native-resolution camera, up to 4 conversions/s, no depth matching. USB transfer can further limit visible FPS.';
+      } else if (outputFps !== null && outputFps >= 28.0) {
         $('diag-summary').textContent = slowest
           ? `Output is meeting the 30 FPS target. The largest measured stage is ${slowest[1].toLowerCase()} (${slowest[2].toFixed(1)} ms).`
           : 'Output is meeting the 30 FPS target.';
@@ -345,15 +423,85 @@
 
     for (const side of liveSides) {
       const img = $(`live-${side}`);
-      img.onload = () => { img.hidden = !state.capture; $(`empty-${side}`).hidden = state.capture; };
+      img.onload = () => {
+        const available = state.capture && state.mode !== 'focus';
+        img.hidden = !available;
+        $(`empty-${side}`).hidden = available;
+      };
       img.onerror = () => { img.hidden = true; $(`empty-${side}`).hidden = false; };
+    }
+
+    $('focus-image').onload = () => {
+      $('focus-image').hidden = !(state.capture && state.mode === 'focus');
+      focusImageError = false;
+    };
+    $('focus-image').onerror = () => {
+      $('focus-image').hidden = true;
+      focusImageError = true;
+      $('focus-feedback').textContent = 'Focus image transfer failed; retrying. Check the connection or stop and restart focus capture.';
+    };
+
+    function depthLegend(calibrated, scale) {
+      const metric = calibrated && Number.isFinite(scale) && scale !== 0;
+      // Same quantized palette and parallax mapping as depth.c/rve_sad.c
+      // and init_bmp() in server.c. Offset is already removed from parallax.
+      return [33, 65, 128, 192, 255].map((index, tick) => {
+        const parallax = (index - 1) * 96 / 254;
+        const cm = Math.abs(scale) / parallax / 10;
+        return {
+          color: `rgb(${index}, ${255 - Math.abs(2 * index - 255)}, ${255 - index})`,
+          label: metric
+            ? `${index === 255 ? '≤' : '≈'}${Math.round(cm)} cm`
+            : ['Far', '', '', '', 'Near'][tick]
+        };
+      });
+    }
+
+    let depthLegendKey = '';
+    function renderDepthLegend(next) {
+      const key = `${next.calibrated}:${next.scale_px_mm}`;
+      if (key === depthLegendKey) return;
+      depthLegendKey = key;
+      $('depth-key').replaceChildren(...depthLegend(next.calibrated, next.scale_px_mm).map(entry => {
+        const tick = document.createElement('span');
+        const swatch = document.createElement('span');
+        swatch.className = 'depth-swatch';
+        swatch.style.backgroundColor = entry.color;
+        swatch.setAttribute('aria-hidden', 'true');
+        tick.append(swatch, entry.label);
+        return tick;
+      }));
+      const metric = next.calibrated && Number.isFinite(next.scale_px_mm) && next.scale_px_mm !== 0;
+      $('depth-key-note').textContent = metric
+        ? 'Approximate distances at colour samples (nonlinear scale). Black = unreliable.'
+        : 'Relative depth only; calibrate for distances. Black = unreliable.';
     }
 
     function renderStatus(next) {
       state = next;
       $('status').textContent = next.capture ? '● Capturing' : '○ Capture stopped';
-      $('capture').textContent = next.capture ? 'Stop capture' : 'Start capture';
-      $('capture').setAttribute('aria-pressed', String(Boolean(next.capture)));
+      const focusing = next.mode === 'focus';
+      const depthRunning = next.capture && !focusing;
+      const focusRunning = next.capture && focusing;
+      $('capture').textContent = depthRunning ? 'Stop depth capture' : 'Start depth capture';
+      $('capture').setAttribute('aria-pressed', String(Boolean(depthRunning)));
+      $('capture-mode').textContent = focusing
+        ? `Focus mode · ${next.focus_camera} · 1280 × 800 · depth paused`
+        : 'Depth mode · 160 × 100';
+      $('focus-capture').textContent = focusRunning ? 'Stop focus capture' : 'Start focus capture';
+      $('focus-capture').setAttribute('aria-pressed', String(Boolean(focusRunning)));
+      $('focus-download').hidden = !focusRunning || !next.frame;
+      for (const slot of ['near', 'far']) $(`snap-${slot}`).disabled = !depthRunning;
+      if (focusRunning && !$('focus-camera').disabled) $('focus-camera').value = next.focus_camera;
+      if (!focusRunning) {
+        focusShownFrame = -1;
+        $('focus-image').hidden = true;
+        if (!focusImageError) $('focus-feedback').textContent = 'Select a camera and start focus capture. Switching tabs does not change capture mode.';
+      } else if (!focusImageError) {
+        $('focus-feedback').textContent = next.frame
+          ? `${next.focus_camera} camera · 1280 × 800 native pixels. Turn the lens manually; use 1:1 view to inspect detail.`
+          : 'Waiting for a full-resolution frame…';
+      }
       $('frames').textContent = Number.isFinite(next.frame) ? next.frame : '—';
       $('pair-delta').textContent = Number.isFinite(next.pair_delta_ms) && next.pair_delta_ms >= 0
         ? `${next.pair_delta_ms.toFixed(1)} ms` : '—';
@@ -364,29 +512,36 @@
       }
       if (!settingsDirty) {
         $('auto-exposure').checked = Boolean(next.auto_exposure);
-        $('swapped').checked = Boolean(next.swapped);
       }
       updateExposureInputs();
+      renderDepthLegend(next);
       $('calibration-state').textContent = next.calibrated
         ? `Calibrated · disparity offset ${next.offset_px.toFixed(1)} px · scale ${next.scale_px_mm.toFixed(1)} px·mm · vertical offset ${next.vertical_px.toFixed(1)} px`
         : 'Not calibrated: depth is relative until you complete the steps below.';
       $('accel').textContent = next.accel
         ? `X ${next.accel.x.toFixed(3)} · Y ${next.accel.y.toFixed(3)} · Z ${next.accel.z.toFixed(3)}`
         : 'No accelerometer reading available';
-      if (!next.capture) {
+      if (!depthRunning) {
         shownFrame = -1;
         for (const side of liveSides) {
           $(`live-${side}`).hidden = true;
           $(`empty-${side}`).hidden = false;
         }
       }
-      if (next.capture && next.frame > 0 && next.frame !== shownFrame &&
+      if (activeTab === 'view' && depthRunning && next.frame > 0 && next.frame !== shownFrame &&
           liveSides.every(side => $(`live-${side}`).complete)) {
         shownFrame = next.frame;
         const cacheKey = `${Date.now()}-${next.frame}`;
         for (const side of liveSides) {
           setImage(`live-${side}`, `/api/${side}.bmp?t=${cacheKey}`);
         }
+      }
+      if (activeTab === 'focus' && focusRunning && next.frame > 0 &&
+          next.frame !== focusShownFrame && $('focus-image').complete &&
+          performance.now() - focusLastRequest >= 750) {
+        focusShownFrame = next.frame;
+        focusLastRequest = performance.now();
+        setImage('focus-image', `/api/focus.bmp?t=${Date.now()}-${next.frame}`);
       }
       if (!actionError) showError(next.error || '');
     }
@@ -412,13 +567,34 @@
         $('status').textContent = 'Disconnected';
         if (!actionError) showError(error.message);
       } finally {
-        setTimeout(poll, Math.max(0, pollIntervalMs - (performance.now() - started)));
+        const interval = state.mode === 'focus' ? 500 : pollIntervalMs;
+        setTimeout(poll, Math.max(0, interval - (performance.now() - started)));
       }
     }
 
     $('capture').addEventListener('click', event => action(event.currentTarget, async () => {
-      await post('/api/capture', { enabled: state.capture ? '0' : '1' });
+      await post('/api/capture', { enabled: state.capture && state.mode !== 'focus' ? '0' : '1', mode: 'depth' });
     }));
+
+    async function startFocus() {
+      focusImageError = false;
+      focusShownFrame = -1;
+      $('focus-image').hidden = true;
+      $('focus-feedback').textContent = 'Switching to native-resolution focus capture…';
+      await post('/api/capture', { enabled: '1', mode: 'focus', camera: $('focus-camera').value });
+    }
+    const focusFailure = message => {
+      focusImageError = true;
+      $('focus-feedback').textContent = `Focus capture failed: ${message}`;
+    };
+    $('focus-capture').addEventListener('click', event => action(event.currentTarget, async () => {
+      focusImageError = false;
+      if (state.capture && state.mode === 'focus') await post('/api/capture', { enabled: '0' });
+      else await startFocus();
+    }, focusFailure));
+    $('focus-camera').addEventListener('change', event => {
+      if (state.capture && state.mode === 'focus') action(event.currentTarget, startFocus, focusFailure);
+    });
 
     $('settings').addEventListener('input', () => { settingsDirty = true; });
     $('settings').addEventListener('change', event => {
@@ -430,35 +606,15 @@
       const form = event.currentTarget;
       if (!form.reportValidity()) return;
       const button = form.querySelector('button[type=submit]');
-      const swapped = $('swapped').checked;
-      const wasSwapped = state.swapped;
       action(button, async () => {
         await post('/api/settings', {
           auto_exposure: $('auto-exposure').checked ? '1' : '0',
           exposure: $('exposure').value,
-          gain: $('gain').value,
-          swapped: swapped ? '1' : '0'
+          gain: $('gain').value
         });
         settingsDirty = false;
-        if (swapped !== wasSwapped) {
-          clearSnapshots();
-          showCalibration('Camera order changed: calibration was cleared. Take new near and far snapshots and calibrate again.', 'error');
-        }
       });
     });
-
-    function clearSnapshots() {
-      for (const slot of ['near', 'far']) {
-        for (const side of ['left', 'right']) {
-          $(`${slot}-${side}`).hidden = true;
-          $(`${slot}-${side}`).removeAttribute('src');
-          $(`${slot}-${side}-empty`).hidden = false;
-          $(`${slot}_${side[0]}x`).value = '';
-          $(`${slot}_${side[0]}y`).value = '';
-          $(`${slot}-${side}-mark`).hidden = true;
-        }
-      }
-    }
 
     function updateMarker(slot, side) {
       const img = $(`${slot}-${side}`);
@@ -540,7 +696,7 @@
       }
       const nearDisparity = Number($('near_lx').value) - Number($('near_rx').value);
       const farDisparity = Number($('far_lx').value) - Number($('far_rx').value);
-      const measurements = `Measured disparity: near ${nearDisparity} px, far ${farDisparity} px. Near must exceed far by more than 1 px; select matching features and check camera order.`;
+      const measurements = `Measured disparity: near ${nearDisparity} px, far ${farDisparity} px. Either disparity direction is supported.`;
       action(form.querySelector('button[type=submit]'), async () => {
         showCalibration('Solving and saving calibration…');
         await post('/api/calibrate', Object.fromEntries(new FormData(form)));

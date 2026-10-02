@@ -6,11 +6,12 @@
 
 #define DEPTH_W 160
 #define DEPTH_H 100
+#define MAX_DISPARITY 96
 
 /* Two-distance, approximate rectification; not a camera-intrinsic calibration. */
 struct Calibration {
 	double offset_px;       /* Disparity at infinite distance. */
-	double scale_px_mm;     /* Disparity = offset_px + scale_px_mm / distance_mm. */
+	double scale_px_mm;     /* Signed: disparity = offset_px + scale_px_mm / distance_mm. */
 	double vertical_px;     /* Right-image y minus left-image y. */
 	int valid;
 };

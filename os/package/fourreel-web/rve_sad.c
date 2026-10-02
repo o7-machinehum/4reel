@@ -40,6 +40,10 @@ void rve_sad_close(void)
     if (initialized)
         RK_MPI_IVE_Deinit();
     initialized = 0;
+    if (state > 0) {
+        state = 0;
+        snprintf(status, sizeof(status), "RVE SAD pending first frame");
+    }
     for (int i = 0; i < 3; ++i) {
         if (memory[i])
             RK_MPI_MMZ_Free(memory[i]);
@@ -227,7 +231,7 @@ int rve_depth_compute(const uint8_t *left, const uint8_t *right,
                 second[i] - best[i] < 32 || second[i] * 10 < best[i] * 12)
                 continue;
             double parallax = disparity[i] - (cal && cal->valid ? cal->offset_px : 0);
-            if (parallax <= 0)
+            if (parallax == 0 || (!(cal && cal->valid) && parallax < 0))
                 continue;
             uint16_t mm = 0;
             if (cal && cal->valid) {
@@ -236,7 +240,8 @@ int rve_depth_compute(const uint8_t *left, const uint8_t *right,
                     continue;
                 mm = (uint16_t)(distance + 0.5);
             }
-            uint8_t color = 1 + (uint8_t)(fmin(parallax, 48) * 254 / 48 + 0.5);
+            uint8_t color = 1 + (uint8_t)(fmin(fabs(parallax), MAX_DISPARITY) *
+                                        254 / MAX_DISPARITY + 0.5);
             for (int dy = 0; dy < BLOCK; ++dy)
                 for (int dx = 0; dx < BLOCK; ++dx) {
                     int p = (y * BLOCK + dy) * DEPTH_W + x * BLOCK + dx;

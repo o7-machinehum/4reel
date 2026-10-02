@@ -9725,7 +9725,7 @@
 		(dnp no)
 		(uuid "eae3714d-d6ff-41e9-b8f8-afb1e4f20aaa")
 		(property "Reference" "J4"
-			(at 149.352 76.2 0)
+			(at 144.907 76.2 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9734,8 +9734,8 @@
 				)
 			)
 		)
-		(property "Value" "JST"
-			(at 149.225 77.978 0)
+		(property "Value" "SM04B-SRSS-TB"
+			(at 144.78 77.978 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects

@@ -27,7 +27,12 @@
 #define PIXELS (DEPTH_W * DEPTH_H)
 #define MAX_BUFFERS 4
 #define BMP_BYTES (14 + 40 + 1024 + PIXELS)
+#define FOCUS_BMP_BYTES (14 + 40 + 1024 + RAW_W * RAW_H)
+#define FOCUS_INTERVAL_MS 250
 #define PROCESS_INTERVAL_MS 33
+/* Fixed physical labels: the former "Swap cameras" enabled mapping. */
+#define LEFT_CAMERA 1
+#define RIGHT_CAMERA 0
 #define CALIBRATION_FILE "/etc/4reel-web.calibration"
 #define INDEX_FILE "/usr/share/4reel-web/index.html"
 #define AE_TARGET 128
@@ -100,13 +105,15 @@ struct Server {
     int64_t last_pair_ms;
     double pair_delta_ms;
     int capture;
+    int focus_mode;
+    int focus_side;
+    uint8_t *focus_bmp;
     int exposure;
     int gain;
     int auto_exposure;
     int ae_level[2];
     double ae_clipped_percent;
     uint64_t ae_last_frame;
-    int swapped;
     char error[128];
     char accel_path[128];
     struct Diagnostics diagnostics;
@@ -116,7 +123,8 @@ struct Server {
 static struct Server server;
 static uint8_t bmp[BMP_BYTES];
 static uint8_t depth_pgm[32 + PIXELS * 2];
-static char json[2048];
+static char json[3072];
+static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_palette);
 static volatile sig_atomic_t stopping;
 static struct {
     pthread_mutex_t lock;
@@ -306,19 +314,21 @@ fail:
 static void unpack_raw10(uint8_t *destination, const uint8_t *source,
                          unsigned stride)
 {
+    /* Correct both sensors' horizontal mirroring while converting, before
+     * preview, calibration and stereo matching. Keep vertical orientation. */
     for (unsigned y = 0; y < DEPTH_H; ++y) {
         const uint8_t *row = source + y * stride;
         for (unsigned x = 0; x < DEPTH_W; ++x) {
             unsigned sample = row[x * 2] | ((unsigned)row[x * 2 + 1] << 8);
             /* CIF returns sums of 64 RAW10 samples, not averaged RAW10.
              * Divide by 64, then discard the sensor's bottom two bits. */
-            destination[y * DEPTH_W + x] = (uint8_t)(sample >> 8);
+            destination[y * DEPTH_W + DEPTH_W - 1 - x] = (uint8_t)(sample >> 8);
         }
     }
 }
 
 /* RV1103/RV1106 has only one CIF scaler (TRM SCL_CH_CTRL bits 31:8 are
- * reserved). Keep the left scaler and capture the right through normal DMA. */
+ * reserved). Camera 0 uses the scaler; camera 1 uses normal DMA. */
 static void downsample_raw10(uint8_t *destination, const uint8_t *source,
                              unsigned stride)
 {
@@ -339,14 +349,17 @@ static void downsample_raw10(uint8_t *destination, const uint8_t *source,
                     odd += (p[3] >> 6) | ((unsigned)p[4] << 2);
                 }
             }
-            destination[y * DEPTH_W + x] = even >> 8;
-            destination[y * DEPTH_W + x + 1] = odd >> 8;
+            destination[y * DEPTH_W + DEPTH_W - 1 - x] = even >> 8;
+            destination[y * DEPTH_W + DEPTH_W - 2 - x] = odd >> 8;
         }
 }
 
-static int find_camera_nodes(char paths[2][32])
+static int find_camera_nodes(char paths[2][32], int full_resolution)
 {
-    const char *names[2] = {"rkcif_scale_ch0", "stream_cif_mipi_id0"};
+    const char *names[2] = {
+        full_resolution ? "stream_cif_mipi_id0" : "rkcif_scale_ch0",
+        "stream_cif_mipi_id0",
+    };
     const char *buses[2] = {
         "platform:rkcif-mipi-lvds",
         "platform:rkcif-mipi-lvds1",
@@ -370,9 +383,7 @@ static int find_camera_nodes(char paths[2][32])
             continue;
         name[strcspn(name, "\r\n")] = 0;
 
-        int target = !strcmp(name, names[0]) ? 0 :
-                     !strcmp(name, names[1]) ? 1 : -1;
-        if (target < 0 || paths[target][0])
+        if (strcmp(name, names[0]) && strcmp(name, names[1]))
             continue;
         snprintf(device, sizeof(device), "/dev/video%d", number);
         int fd = open(device, O_RDWR | O_NONBLOCK);
@@ -382,9 +393,10 @@ static int find_camera_nodes(char paths[2][32])
         int saved_errno = errno;
         close(fd);
         errno = saved_errno;
-        if (queried == 0 && !strcmp((const char *)capability.bus_info,
-                                    buses[target]))
-            snprintf(paths[target], 32, "%s", device);
+        for (int target = 0; target < 2; ++target)
+            if (queried == 0 && !strcmp(name, names[target]) &&
+                !strcmp((const char *)capability.bus_info, buses[target]))
+                snprintf(paths[target], 32, "%s", device);
     }
     if (!paths[0][0] || !paths[1][0]) {
         errno = ENODEV;
@@ -421,6 +433,8 @@ static void capture_stop(struct Server *state)
 {
     camera_close(&state->cameras[0]);
     camera_close(&state->cameras[1]);
+    free(state->focus_bmp);
+    state->focus_bmp = NULL;
     state->capture = 0;
     state->frame = 0;
     state->last_pair_ms = 0;
@@ -438,14 +452,21 @@ static int capture_start(struct Server *state)
 
     if (state->capture)
         return 0;
-    if (find_camera_nodes(paths) < 0 ||
-        apply_sensor_settings(state->exposure, state->gain) < 0 ||
-        camera_open(&state->cameras[0], paths[0], 1) < 0 ||
-        camera_open(&state->cameras[1], paths[1], 0) < 0) {
-        snprintf(state->error, sizeof(state->error), "camera start failed: %s",
-                 strerror(errno));
-        capture_stop(state);
-        return -1;
+    if (find_camera_nodes(paths, state->focus_mode) < 0 ||
+        apply_sensor_settings(state->exposure, state->gain) < 0)
+        goto fail;
+    if (state->focus_mode) {
+        int index = state->focus_side ? RIGHT_CAMERA : LEFT_CAMERA;
+        rve_sad_close();
+        state->focus_bmp = malloc(FOCUS_BMP_BYTES);
+        if (!state->focus_bmp)
+            goto fail;
+        init_bmp(state->focus_bmp, RAW_W, RAW_H, 0);
+        if (camera_open(&state->cameras[index], paths[index], 0) < 0)
+            goto fail;
+    } else if (camera_open(&state->cameras[0], paths[0], 1) < 0 ||
+               camera_open(&state->cameras[1], paths[1], 0) < 0) {
+        goto fail;
     }
     state->cameras[0].fresh = state->cameras[1].fresh = 0;
     state->cameras[0].last_frame_ms = state->cameras[1].last_frame_ms = monotonic_ms();
@@ -453,6 +474,14 @@ static int capture_start(struct Server *state)
     state->capture = 1;
     state->error[0] = 0;
     return 0;
+
+fail:
+    {
+        snprintf(state->error, sizeof(state->error), "camera start failed: %s",
+                 strerror(errno));
+        capture_stop(state);
+        return -1;
+    }
 }
 
 static int image_percentile(const uint8_t *image, unsigned percentile,
@@ -583,8 +612,8 @@ static void pair_if_ready(struct Server *state)
     if (now - state->last_pair_ms < PROCESS_INTERVAL_MS)
         return;
     int64_t process_start_us = monotonic_us();
-    const struct Camera *left = &state->cameras[state->swapped ? 1 : 0];
-    const struct Camera *right = &state->cameras[state->swapped ? 0 : 1];
+    const struct Camera *left = &state->cameras[LEFT_CAMERA];
+    const struct Camera *right = &state->cameras[RIGHT_CAMERA];
     memcpy(state->latest[0], left->image, PIXELS);
     memcpy(state->latest[1], right->image, PIXELS);
     int64_t depth_start_us = monotonic_us();
@@ -607,6 +636,30 @@ static void pair_if_ready(struct Server *state)
     fps_sample(&state->diagnostics.output_fps,
                &state->diagnostics.output_fps_samples,
                &state->diagnostics.last_output_us, completed_us);
+}
+
+/* Native packed RAW10 -> 8-bit BMP, without spatial downsampling. Only one
+ * full-size buffer is allocated, and only while focus capture is active.
+ * Reverse horizontal order here too, matching the depth inputs. */
+static void focus_unpack(struct Server *state, const uint8_t *source, unsigned stride)
+{
+    for (unsigned y = 0; y < RAW_H; ++y) {
+        const uint8_t *p = source + y * stride;
+        uint8_t *row = state->focus_bmp + 1078 + (RAW_H - 1 - y) * RAW_W;
+        for (unsigned x = 0; x < RAW_W; x += 4, p += 5) {
+            row[RAW_W - 1 - x] = (p[0] >> 2) | ((p[1] & 3U) << 6);
+            row[RAW_W - 2 - x] = (p[1] >> 4) | ((p[2] & 15U) << 4);
+            row[RAW_W - 3 - x] = (p[2] >> 6) | ((p[3] & 63U) << 2);
+            row[RAW_W - 4 - x] = p[4];
+        }
+    }
+    /* Reuse the small AE input arrays; in focus mode meter only the active
+     * camera, rather than a stale image from the inactive sensor. */
+    for (unsigned y = 0; y < DEPTH_H; ++y)
+        for (unsigned x = 0; x < DEPTH_W; ++x)
+            state->latest[0][y * DEPTH_W + x] =
+                state->focus_bmp[1078 + (RAW_H - 1 - (y * 8 + 4)) * RAW_W + x * 8 + 4];
+    memcpy(state->latest[1], state->latest[0], PIXELS);
 }
 
 static void camera_drain(struct Server *state, int index)
@@ -654,8 +707,10 @@ static void camera_drain(struct Server *state, int index)
             capture_stop(state);
             return;
         }
+        camera->last_frame_ms = monotonic_ms();
+        int interval = state->focus_mode ? FOCUS_INTERVAL_MS : PROCESS_INTERVAL_MS;
         if (state->last_pair_ms &&
-            monotonic_ms() - state->last_pair_ms < PROCESS_INTERVAL_MS) {
+            monotonic_ms() - state->last_pair_ms < interval) {
             state->diagnostics.skipped_frames[index]++;
             if (camera_queue(camera, buffer.index) < 0) {
                 snprintf(state->error, sizeof(state->error),
@@ -667,7 +722,9 @@ static void camera_drain(struct Server *state, int index)
         }
         int64_t unpack_start_us = monotonic_us();
         camera->last_frame_ms = monotonic_ms();
-        if (camera->scaled)
+        if (state->focus_mode)
+            focus_unpack(state, camera->buffers[buffer.index].data, camera->stride);
+        else if (camera->scaled)
             unpack_raw10(camera->image, camera->buffers[buffer.index].data,
                          camera->stride);
         else
@@ -685,7 +742,22 @@ static void camera_drain(struct Server *state, int index)
             capture_stop(state);
             return;
         }
-        pair_if_ready(state);
+        if (state->focus_mode) {
+            state->last_pair_ms = monotonic_ms();
+            state->frame++;
+            timing_sample(&state->diagnostics.unpack_work, unpack_ms);
+            int64_t ae_start_us = monotonic_us();
+            auto_exposure_update(state);
+            timing_sample(&state->diagnostics.auto_exposure,
+                          (monotonic_us() - ae_start_us) / 1000.0);
+            timing_sample(&state->diagnostics.process,
+                          (monotonic_us() - unpack_start_us) / 1000.0);
+            fps_sample(&state->diagnostics.output_fps,
+                       &state->diagnostics.output_fps_samples,
+                       &state->diagnostics.last_output_us, monotonic_us());
+        } else {
+            pair_if_ready(state);
+        }
     }
 }
 
@@ -696,11 +768,11 @@ static int save_calibration(const struct Server *state)
     if (!output)
         return -1;
     int result = fprintf(output,
-                         "4REELCAL2 %d %d %d %.17g %.17g %.17g %d\n",
+                         "4REELCAL3 %d %d %d %.17g %.17g %.17g %d\n",
                          DEPTH_W, DEPTH_H, state->calibration.valid,
                          state->calibration.offset_px,
                          state->calibration.scale_px_mm,
-                         state->calibration.vertical_px, state->swapped);
+                         state->calibration.vertical_px, 1);
     int failed = result < 0;
     if (!failed && fflush(output) != 0)
         failed = 1;
@@ -726,19 +798,20 @@ static void load_calibration(struct Server *state)
         return;
     struct Calibration calibration = {0};
     int width = 0, height = 0, valid = 0, swapped = 0;
-    if (fscanf(input, "4REELCAL2 %d %d %d %lf %lf %lf %d",
+    /* v3 coordinates include horizontal correction; reject mirrored v2 data. */
+    if (fscanf(input, "4REELCAL3 %d %d %d %lf %lf %lf %d",
                &width, &height, &valid,
                &calibration.offset_px, &calibration.scale_px_mm,
                &calibration.vertical_px, &swapped) == 7 &&
         width == DEPTH_W && height == DEPTH_H &&
-        (valid == 0 || valid == 1) && (swapped == 0 || swapped == 1) &&
+        /* Calibration from the old unchecked order needs new snapshots. */
+        (valid == 0 || valid == 1) && swapped == 1 &&
         isfinite(calibration.offset_px) &&
         isfinite(calibration.scale_px_mm) &&
         isfinite(calibration.vertical_px) &&
-        (!valid || calibration.scale_px_mm > 0)) {
+        (!valid || calibration.scale_px_mm != 0)) {
         calibration.valid = valid;
         state->calibration = calibration;
-        state->swapped = swapped;
     }
     fclose(input);
 }
@@ -838,22 +911,22 @@ static void put32(uint8_t *out, uint32_t value)
     put16(out + 2, value >> 16);
 }
 
-static const uint8_t *make_bmp(const uint8_t *image, int depth_palette)
+static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_palette)
 {
-    memset(bmp, 0, 14 + 40);
-    bmp[0] = 'B';
-    bmp[1] = 'M';
-    put32(bmp + 2, BMP_BYTES);
-    put32(bmp + 10, 14 + 40 + 1024);
-    put32(bmp + 14, 40);
-    put32(bmp + 18, DEPTH_W);
-    put32(bmp + 22, DEPTH_H);
-    put16(bmp + 26, 1);
-    put16(bmp + 28, 8);
-    put32(bmp + 34, PIXELS);
-    put32(bmp + 46, 256);
+    memset(out, 0, 1078);
+    out[0] = 'B';
+    out[1] = 'M';
+    put32(out + 2, 1078 + width * height);
+    put32(out + 10, 1078);
+    put32(out + 14, 40);
+    put32(out + 18, width);
+    put32(out + 22, height);
+    put16(out + 26, 1);
+    put16(out + 28, 8);
+    put32(out + 34, width * height);
+    put32(out + 46, 256);
     for (int i = 0; i < 256; ++i) {
-        uint8_t *entry = bmp + 54 + i * 4;
+        uint8_t *entry = out + 54 + i * 4;
         if (depth_palette && i) {
             entry[0] = 255 - i;
             entry[1] = 255 - abs(2 * i - 255);
@@ -863,6 +936,11 @@ static const uint8_t *make_bmp(const uint8_t *image, int depth_palette)
             entry[0] = entry[1] = entry[2] = bright;
         }
     }
+}
+
+static const uint8_t *make_bmp(const uint8_t *image, int depth_palette)
+{
+    init_bmp(bmp, DEPTH_W, DEPTH_H, depth_palette);
     for (int y = 0; y < DEPTH_H; ++y)
         memcpy(bmp + 1078 + y * DEPTH_W,
                image + (DEPTH_H - 1 - y) * DEPTH_W, DEPTH_W);
@@ -882,7 +960,7 @@ static const uint8_t *make_depth_pgm(const struct Server *state, size_t *length)
     return depth_pgm;
 }
 
-static char index_page[32768];
+static char index_page[49152];
 static size_t index_length;
 
 static int load_index(void)
@@ -983,8 +1061,8 @@ static void status_response(const struct Server *state, struct HttpResponse *res
     double accel[3];
     char accel_json[160];
     char metric_json[11][32];
-    int left = state->swapped ? 1 : 0;
-    int right = state->swapped ? 0 : 1;
+    int left = LEFT_CAMERA;
+    int right = RIGHT_CAMERA;
     if (cached_accelerometer(accel) == 0)
         snprintf(accel_json, sizeof(accel_json),
                  "{\"x\":%.5f,\"y\":%.5f,\"z\":%.5f}",
@@ -993,14 +1071,15 @@ static void status_response(const struct Server *state, struct HttpResponse *res
         snprintf(accel_json, sizeof(accel_json), "null");
     int length = snprintf(json, sizeof(json),
         "{\"capture\":%s,\"frame\":%" PRIu64 ",\"pair_delta_ms\":%.3f,"
+        "\"mode\":\"%s\",\"focus_camera\":\"%s\","
         "\"exposure\":%d,\"gain\":%d,\"auto_exposure\":%s,"
         "\"ae_level_left\":%d,\"ae_level_right\":%d,"
-        "\"ae_clipped_percent\":%.3f,\"swapped\":%s,"
+        "\"ae_clipped_percent\":%.3f,\"swapped\":true,"
         "\"calibrated\":%s,\"offset_px\":%.5f,"
         "\"scale_px_mm\":%.5f,\"vertical_px\":%.5f,"
         "\"accel\":%s,\"diagnostics\":{"
         "\"depth_backend\":\"%s\",\"sad_ms\":%.3f,\"sad_passes\":%u,"
-        "\"capture_backend\":\"left CIF /8, right CPU /8\","
+        "\"capture_backend\":\"%s\","
         "\"capture_width\":%d,\"capture_height\":%d,"
         "\"processing_width\":%d,\"processing_height\":%d,"
         "\"output_fps\":%s,\"raw_fps_left\":%s,"
@@ -1016,16 +1095,19 @@ static void status_response(const struct Server *state, struct HttpResponse *res
         "\"sync_dropped_right\":%" PRIu64 "},"
         "\"error\":\"%s\"}",
         state->capture ? "true" : "false", state->frame,
-        state->frame ? state->pair_delta_ms : -1.0,
+        state->frame && !state->focus_mode ? state->pair_delta_ms : -1.0,
+        state->focus_mode ? "focus" : "depth", state->focus_side ? "right" : "left",
         state->exposure, state->gain,
         state->auto_exposure ? "true" : "false",
         state->ae_level[0], state->ae_level[1], state->ae_clipped_percent,
-        state->swapped ? "true" : "false",
         state->calibration.valid ? "true" : "false",
         state->calibration.offset_px, state->calibration.scale_px_mm,
         state->calibration.vertical_px, accel_json,
-        rve_sad_status(), rve_sad_milliseconds(), rve_sad_passes(),
-        RAW_W, RAW_H, DEPTH_W, DEPTH_H,
+        state->focus_mode ? "Paused for focus" : rve_sad_status(),
+        state->focus_mode ? 0 : rve_sad_milliseconds(), state->focus_mode ? 0 : rve_sad_passes(),
+        state->focus_mode ? "single camera, native RAW10" : "left CPU /8, right CIF /8",
+        RAW_W, RAW_H, state->focus_mode ? RAW_W : DEPTH_W,
+        state->focus_mode ? RAW_H : DEPTH_H,
         diagnostic_number(metric_json[0], sizeof(metric_json[0]),
                           state->diagnostics.output_fps,
                           state->diagnostics.output_fps_samples),
@@ -1080,14 +1162,31 @@ static void handle_post(const struct HttpRequest *request,
     }
     if (!strcmp(request->path, "/api/capture")) {
         int enabled;
+        char mode[16] = "depth", side[16];
         if (form_int(request, "enabled", &enabled) < 0 ||
             (enabled != 0 && enabled != 1)) {
             respond_json(response, 400, "enabled must be 0 or 1");
             return;
         }
         if (enabled) {
-            state->frame = 0;
-            state->last_pair_ms = 0;
+            form_value(request, "mode", mode, sizeof(mode));
+            if (strcmp(mode, "depth") && strcmp(mode, "focus")) {
+                respond_json(response, 400, "mode must be depth or focus");
+                return;
+            }
+            int focus = !strcmp(mode, "focus"), focus_side = 0;
+            if (focus) {
+                if (form_value(request, "camera", side, sizeof(side)) < 0 ||
+                    (strcmp(side, "left") && strcmp(side, "right"))) {
+                    respond_json(response, 400, "focus camera must be left or right");
+                    return;
+                }
+                focus_side = !strcmp(side, "right");
+            }
+            if (state->focus_mode != focus || state->focus_side != focus_side)
+                capture_stop(state);
+            state->focus_mode = focus;
+            state->focus_side = focus_side;
             if (capture_start(state) < 0) {
                 respond_json(response, 503, state->error);
                 return;
@@ -1099,38 +1198,20 @@ static void handle_post(const struct HttpRequest *request,
         return;
     }
     if (!strcmp(request->path, "/api/settings")) {
-        int exposure, gain, auto_exposure, swapped;
+        int exposure, gain, auto_exposure;
         if (form_int(request, "exposure", &exposure) < 0 ||
             form_int(request, "gain", &gain) < 0 ||
             form_int(request, "auto_exposure", &auto_exposure) < 0 ||
-            form_int(request, "swapped", &swapped) < 0 ||
             exposure < 4 || exposure > 3652 || gain < 16 || gain > 248 ||
-            (auto_exposure != 0 && auto_exposure != 1) ||
-            (swapped != 0 && swapped != 1)) {
+            (auto_exposure != 0 && auto_exposure != 1)) {
             respond_json(response, 400,
-                         "invalid exposure, gain, auto exposure, or camera order");
+                         "invalid exposure, gain, or auto exposure");
             return;
         }
         if (state->capture && apply_sensor_settings(exposure, gain) < 0) {
             apply_sensor_settings(state->exposure, state->gain);
             respond_json(response, 503, "could not set sensor controls");
             return;
-        }
-        if (swapped != state->swapped) {
-            int previous_swapped = state->swapped;
-            int previous_valid = state->calibration.valid;
-            state->swapped = swapped;
-            state->calibration.valid = 0;
-            if (save_calibration(state) < 0) {
-                state->swapped = previous_swapped;
-                state->calibration.valid = previous_valid;
-                if (state->capture)
-                    apply_sensor_settings(state->exposure, state->gain);
-                respond_json(response, 500, "could not save camera order");
-                return;
-            }
-            state->snapshot_valid[0] = state->snapshot_valid[1] = 0;
-            state->frame = 0;
         }
         state->exposure = exposure;
         state->gain = gain;
@@ -1140,6 +1221,10 @@ static void handle_post(const struct HttpRequest *request,
         return;
     }
     if (!strcmp(request->path, "/api/snapshot")) {
+        if (state->focus_mode) {
+            respond_json(response, 409, "start stereo depth capture before taking calibration snapshots");
+            return;
+        }
         char slot[16];
         if (form_value(request, "slot", slot, sizeof(slot)) < 0 ||
             (strcmp(slot, "near") && strcmp(slot, "far"))) {
@@ -1189,7 +1274,7 @@ static void handle_post(const struct HttpRequest *request,
             respond_json(response, 500, "could not save calibration");
             return;
         }
-        if (state->frame)
+        if (state->frame && !state->focus_mode)
             depth_compute(state->latest[0], state->latest[1], &state->calibration,
                           state->depth_visual, state->depth_mm);
         respond_ok(response);
@@ -1210,6 +1295,21 @@ static void handle_get(const struct HttpRequest *request,
     if (!strcmp(path, "/api/status")) {
         state->http_request_kind = HTTP_REQUEST_STATUS;
         status_response(state, response);
+        return;
+    }
+    if (!strcmp(path, "/api/focus.bmp")) {
+        if (!state->capture || !state->focus_mode || !state->frame || !state->focus_bmp) {
+            respond_json(response, 409, "start focus capture and wait for an image");
+            return;
+        }
+        state->http_request_kind = HTTP_REQUEST_IMAGE;
+        respond(response, 200, "image/bmp", state->focus_bmp, FOCUS_BMP_BYTES);
+        return;
+    }
+    if (state->focus_mode && (!strcmp(path, "/api/left.bmp") ||
+        !strcmp(path, "/api/right.bmp") || !strcmp(path, "/api/depth.bmp") ||
+        !strcmp(path, "/api/depth.pgm"))) {
+        respond_json(response, 409, "stereo depth capture is paused for focus");
         return;
     }
     const uint8_t *image = NULL;
@@ -1302,7 +1402,8 @@ static int serve(const char *bind_address)
                     camera_drain(&server, i);
             }
             for (int i = 0; i < 2 && server.capture; ++i) {
-                if (monotonic_ms() - server.cameras[i].last_frame_ms > 2000) {
+                if (server.cameras[i].fd >= 0 &&
+                    monotonic_ms() - server.cameras[i].last_frame_ms > 2000) {
                     snprintf(server.error, sizeof(server.error),
                              "camera %d: no valid frames for 2 seconds", i);
                     capture_stop(&server);

@@ -15,8 +15,7 @@
 
 #define PIXELS (DEPTH_W * DEPTH_H)
 #define CENSUS_RADIUS 2
-#define MAX_DISPARITY 48
-#define SEARCH_NEAR_MM 150.0
+#define SEARCH_NEAR_MM 75.0
 #define SEARCH_FAR_MM 5000.0
 #define SEARCH_MARGIN_PX 2
 
@@ -60,8 +59,8 @@ int calibration_solve(const struct CalPoint *near, const struct CalPoint *far,
 
 	near_d = near->lx - near->rx;
 	far_d = far->lx - far->rx;
-	if (near_d <= far_d + 1.0)
-		return invalid(error, error_size, "Near disparity must exceed far disparity by more than one pixel.");
+	if (magnitude(near_d - far_d) <= 1.0)
+		return invalid(error, error_size, "Near and far disparities must differ by more than one pixel; select matching features at distinct distances.");
 	vertical = ((near->ry - near->ly) + (far->ry - far->ly)) * 0.5;
 	if (vertical < -12.0 || vertical > 12.0 ||
 	    magnitude((near->ry - near->ly) - (far->ry - far->ly)) > 4.0)
@@ -70,11 +69,11 @@ int calibration_solve(const struct CalPoint *near, const struct CalPoint *far,
 	scale = (near_d - far_d) /
 		(1.0 / near->distance_mm - 1.0 / far->distance_mm);
 	offset = near_d - scale / near->distance_mm;
-	if (!isfinite(scale) || !isfinite(offset) || scale <= 0 ||
+	if (!isfinite(scale) || !isfinite(offset) || scale == 0 ||
 	    offset < -MAX_DISPARITY || offset > MAX_DISPARITY ||
 	    near_d < -MAX_DISPARITY || near_d > MAX_DISPARITY ||
 	    far_d < -MAX_DISPARITY || far_d > MAX_DISPARITY)
-		return invalid(error, error_size, "Calibration implies an unsupported disparity range (maximum 48 pixels).");
+		return invalid(error, error_size, "Calibration implies an unsupported disparity range (maximum 96 pixels).");
 
 	out->offset_px = offset;
 	out->scale_px_mm = scale;
@@ -190,10 +189,11 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 		offset = cal->offset_px;
 		vertical = (int)(cal->vertical_px +
 				 (cal->vertical_px >= 0 ? 0.5 : -0.5));
-		lower = floor(offset + cal->scale_px_mm / SEARCH_FAR_MM) -
-			SEARCH_MARGIN_PX;
-		upper = ceil(offset + cal->scale_px_mm / SEARCH_NEAR_MM) +
-			SEARCH_MARGIN_PX;
+		/* Camera order determines the sign of scale, not physical distance. */
+		double near_d = offset + cal->scale_px_mm / SEARCH_NEAR_MM;
+		double far_d = offset + cal->scale_px_mm / SEARCH_FAR_MM;
+		lower = floor(fmin(near_d, far_d)) - SEARCH_MARGIN_PX;
+		upper = ceil(fmax(near_d, far_d)) + SEARCH_MARGIN_PX;
 		if (!isfinite(lower) || !isfinite(upper))
 			return;
 		if (lower < -MAX_DISPARITY)
@@ -240,7 +240,7 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 				continue;
 
 			parallax = calibrated ? best_d - offset : best_d;
-			if (parallax <= 0)
+			if (parallax == 0 || (!calibrated && parallax < 0))
 				continue;
 			if (calibrated) {
 				distance = cal->scale_px_mm / parallax;
@@ -249,6 +249,7 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 					continue;
 				depth_mm[index] = (uint16_t)(distance + 0.5);
 			}
+			parallax = magnitude(parallax);
 			if (parallax > MAX_DISPARITY)
 				parallax = MAX_DISPARITY;
 			visual[index] = 1 + (uint8_t)(parallax * 254.0 /
