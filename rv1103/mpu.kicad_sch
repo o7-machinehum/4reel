@@ -14432,7 +14432,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1k"
+		(property "Value" "470R"
 			(at 39.37 128.2699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14476,7 +14476,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0402FR-071KL"
+		(property "MPN" "RC0402FR-07470RL"
 			(at 36.83 127 0)
 			(hide yes)
 			(show_name no)
@@ -14894,7 +14894,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1k"
+		(property "Value" "470R"
 			(at 27.94 128.2699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14938,7 +14938,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0402FR-071KL"
+		(property "MPN" "RC0402FR-07470RL"
 			(at 25.4 127 0)
 			(hide yes)
 			(show_name no)
