@@ -9,10 +9,6 @@ The JST connecter can be used to send data UART to an Arduino, ESP32, etc. The s
 
 ![4reel RV1103 board block diagram](img/system-overview.svg)
 
-```sh
-python3 scripts/render_overview.py
-```
-
 
 ## Repo structure
 ``` bash
