@@ -11406,7 +11406,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103BG3"
+		(property "MPN" "RV1103G1"
 			(at 118.11 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -12220,7 +12220,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103BG3"
+		(property "MPN" "RV1103G1"
 			(at 219.71 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -15623,7 +15623,7 @@
 				)
 			)
 		)
-		(property "MPN" "RV1103BG3"
+		(property "MPN" "RV1103G1"
 			(at 77.47 63.5 0)
 			(hide yes)
 			(show_name no)

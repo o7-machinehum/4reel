@@ -1063,7 +1063,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "W25Q32JVZP"
+		(property "Value" "GD25Q128EWIGY"
 			(at 162.56 93.9799 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1107,7 +1107,7 @@
 				)
 			)
 		)
-		(property "MPN" "W25Q32JVZPIQ"
+		(property "MPN" "GD25Q128EWIGY"
 			(at 151.13 92.71 0)
 			(hide yes)
 			(show_name no)
