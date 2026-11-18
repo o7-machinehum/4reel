@@ -165,7 +165,7 @@
           <button type="submit">Apply settings</button>
         </form>
       </div>
-      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
+      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. In focus mode, it meters the selected camera and allows small bright reflections to clip. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
     </section>
     <section class="panel" aria-labelledby="cal-title">
       <h2 id="cal-title">Calibrate depth</h2>
@@ -193,6 +193,7 @@
         </div>
         <p>Native <strong>1280 × 800</strong>, one camera at a time. Turn the lens gently to focus; these lenses have no motorized autofocus.</p>
         <p class="muted">Depth matching pauses while focusing. Full-resolution BMP frames are about 1 MB, so updates are slower over 12 Mbps USB. Auto-exposure/gain controls are on <button class="link-button" id="focus-settings" type="button">Calibration</button>.</p>
+        <p class="muted">Place a high-contrast target near the centre and use 1:1 pixels to inspect detail. Auto exposure adjusts on each focus frame; disable it in Calibration to hold brightness steady while turning the lens.</p>
         <p id="focus-feedback" role="status">Select a camera and start focus capture. Switching tabs does not change capture mode.</p>
         <div id="focus-viewport"><img id="focus-image" alt="Full-resolution selected camera for manual focusing" hidden></div>
         <p class="muted">Finish focusing both lenses before calibration. If you change focus after calibration, recalibrate.</p>

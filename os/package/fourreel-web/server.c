@@ -35,6 +35,7 @@
 #define RIGHT_CAMERA 0
 #define CALIBRATION_FILE "/etc/4reel-web.calibration"
 #define INDEX_FILE "/usr/share/4reel-web/index.html"
+#define SENSOR_BLACK_LEVEL 16
 #define AE_TARGET 128
 #define AE_LOW 110
 #define AE_HIGH 145
@@ -543,13 +544,16 @@ static void auto_exposure_update(struct Server *state)
 {
     double clipped[2];
     double factor;
+    double minimum_factor = state->focus_mode ? 0.5 : 0.8;
+    double maximum_factor = state->focus_mode ? 2.0 : 1.25;
+    unsigned interval_frames = state->focus_mode ? 1 : AE_INTERVAL_FRAMES;
     int level;
     int exposure;
     int gain;
 
     if (!state->auto_exposure ||
         (state->ae_last_frame &&
-         state->frame - state->ae_last_frame < AE_INTERVAL_FRAMES))
+         state->frame - state->ae_last_frame < interval_frames))
         return;
     state->ae_last_frame = state->frame;
     for (int i = 0; i < 2; ++i)
@@ -558,14 +562,17 @@ static void auto_exposure_update(struct Server *state)
     level = state->ae_level[0] < state->ae_level[1] ?
         state->ae_level[0] : state->ae_level[1];
 
-    if (state->ae_clipped_percent > AE_CLIP_PERCENT) {
+    /* The focus percentile tolerates small reflections; broad clipping still
+     * raises the metered level. Depth keeps its stricter highlight limit. */
+    if (!state->focus_mode && state->ae_clipped_percent > AE_CLIP_PERCENT) {
         factor = 0.8;
     } else if (level < AE_LOW || level > AE_HIGH) {
-        factor = (double)(AE_TARGET - 16) / (level > 16 ? level - 16 : 1);
-        if (factor < 0.8)
-            factor = 0.8;
-        if (factor > 1.25)
-            factor = 1.25;
+        factor = (double)(AE_TARGET - SENSOR_BLACK_LEVEL) /
+                 (level > SENSOR_BLACK_LEVEL ? level - SENSOR_BLACK_LEVEL : 1);
+        if (factor < minimum_factor)
+            factor = minimum_factor;
+        if (factor > maximum_factor)
+            factor = maximum_factor;
     } else {
         return;
     }
@@ -932,7 +939,10 @@ static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_pa
             entry[1] = 255 - abs(2 * i - 255);
             entry[2] = i;
         } else if (!depth_palette) {
-            uint8_t bright = (uint8_t)(pow((double)i / 255.0, 0.45) * 255.0 + 0.5);
+            /* Subtract the sensor black pedestal before display gamma. */
+            double signal = i > SENSOR_BLACK_LEVEL ?
+                (double)(i - SENSOR_BLACK_LEVEL) / (255 - SENSOR_BLACK_LEVEL) : 0;
+            uint8_t bright = (uint8_t)(pow(signal, 0.45) * 255.0 + 0.5);
             entry[0] = entry[1] = entry[2] = bright;
         }
     }
