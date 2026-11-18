@@ -7797,7 +7797,7 @@
 				)
 			)
 		)
-		(property "MPN" "TLV73312PDBV"
+		(property "MPN" "TLV73312PDBVR"
 			(at 201.93 76.2 0)
 			(hide yes)
 			(show_name no)

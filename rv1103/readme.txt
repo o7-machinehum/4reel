@@ -46,3 +46,22 @@ differential. Solder mask, actual material properties, copper shape, and PCBWay
 process compensation are not included in that estimate. Order the PCB with
 100 ohm differential impedance control and allow PCBWay to adjust the production
 width/gap after their field-solver review.
+
+OV9281 camera sensor assembly and handling (U3/U9)
+-------------------------------------------------
+- Use clean, ESD-controlled handling. Protect the optical windows from dust,
+  fingerprints, flux and scratches; use only supplier-approved protective film.
+- Follow the reel's moisture-sensitivity, floor-life and baking instructions.
+- Follow the current supplier-approved reflow profile. The local preliminary
+  datasheet specifies a 245 C maximum peak and at most 3 reflow cycles;
+  nitrogen reflow is recommended. Peak temperature and heating duration matter.
+- Use compatible no-clean solder paste. Do not wash, ultrasonically clean or
+  immerse assembled sensors in solvent without a sensor-qualified process.
+- Excess heat can permanently degrade image quality or damage the package,
+  even when the sensor still powers up and streams video.
+- Fit optics in a clean environment and inspect both cameras. Check dark and
+  uniformly illuminated images; after suspected overheating, compare against
+  a known-good sensor at matching temperature, exposure and gain.
+
+General image-sensor handling guidance (confirm applicability with OMNIVISION):
+https://www.onsemi.com/download/application-notes/pdf/an52561-d.pdf

@@ -9702,7 +9702,7 @@
 		(at 146.05 30.48 0)
 		(unit 1)
 		(body_style 1)
-		(exclude_from_sim no)
+		(exclude_from_sim yes)
 		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
@@ -9754,17 +9754,6 @@
 			)
 		)
 		(property "Description" "Open Hardware logo, large"
-			(at 146.05 30.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Sim.Enable" "0"
 			(at 146.05 30.48 0)
 			(hide yes)
 			(show_name no)
