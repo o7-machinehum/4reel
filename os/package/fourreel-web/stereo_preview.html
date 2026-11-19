@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>4reel stereo diagnostics</title>
+<style>body{font:15px system-ui;background:#101820;color:#e8eef3;max-width:1100px;margin:20px auto;padding:0 15px}button,input{font:inherit}button{padding:7px;margin-right:10px}small,.muted{color:#b6c6d0}h1{font-size:24px}h2{font-size:19px;margin-top:25px}#preview{image-rendering:pixelated;width:min(100%,640px);border:1px solid #71818c}#summary{line-height:1.7;white-space:pre-line}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:right;border-bottom:1px solid #384653;padding:5px}td:first-child,th:first-child{text-align:left}canvas{width:100%;height:245px;background:#192632}#warning{color:#ffd27f}pre{white-space:pre-wrap}a{color:#8edaff}</style>
+<h1>4reel · stereo depth</h1><p>Physical left / right. Native orientation preserved. One trigger ID for all four tiles.</p>
+<p><label><input id="refresh" type="checkbox" checked> Refresh preview and statistics at 1 Hz</label></p>
+<p><button id="toggle">Turn diagnostics off</button><span id="mode">Connecting…</span></p>
+<p id="warning">Development image: no hardware accuracy or throughput certification. Waiting for a processed pair.</p>
+<div style="max-width:640px;display:flex;justify-content:space-around"><b>LEFT · module 1</b><b>RIGHT · module 0</b></div>
+<img id="preview" alt="Top: left and right mono images. Bottom: corresponding depth for the same trigger.">
+<p id="legend">Top: mono. Bottom: depth. Invalid pixels black; extrapolated metric support hatched grey. Relative colours are independently normalised per eye and have no metric scale. Metric colours use logarithmic 0.15 m (blue) to 20 m (red).</p>
+<div id="summary"></div>
+<h2>Overlapping host timeline</h2><small>CPU lanes show elapsed scopes, not continuous CPU execution. RGA/NPU lanes show synchronous API entry→return (submit + wait + completion); internal phases and hardware counters are unavailable. RVE is unused. Queue waits are host observations.</small>
+<canvas id="timeline" width="1060" height="245"></canvas><p id="bottleneck"></p>
+<h2>Displayed pair and rolling window</h2><p id="window"></p>
+<table><thead><tr><th>Stage</th><th>Elapsed ms</th><th>Thread CPU ms</th><th>p50 ms</th><th>p95 ms</th><th>Samples</th></tr></thead><tbody id="stages"></tbody></table>
+<h2>Diagnostic cost and on/off comparison</h2><p>Off disables stage tracing, snapshot copies and preview rendering. The pipeline keeps running. Minimal pair counters and thread CPU totals remain for comparison. No measurements are simulated. Compare similar scenes and settings; these samples are observational.</p>
+<pre id="overhead"></pre><small>Preview/HTTP costs refer to the preceding request so the response does not claim to measure its own future transmission. HTTP elapsed includes slow-client wait (bounded to 2 seconds), and includes preview preparation; do not add them.</small>
+<script>
+'use strict';
+const el=id=>document.getElementById(id); let last=null,busy=false,enabled=true;
+const fmt=x=>x===null?'unavailable':Number(x).toFixed(2);
+const resources=['CPU main','CPU helper','RGA call','NPU call','Host wait','File I/O','Capture envelope','RVE unavailable'];
+function timeline(d){const c=el('timeline'),g=c.getContext('2d'),span=Math.max(d.pair_ms,...d.events.map(e=>e.end_ms),1);g.clearRect(0,0,c.width,c.height);g.font='12px system-ui';
+ resources.forEach((r,i)=>{g.fillStyle='#cfdae2';g.fillText(r,4,22+i*26);g.strokeStyle='#354552';g.beginPath();g.moveTo(145,26+i*26);g.lineTo(c.width,26+i*26);g.stroke()});
+ for(const e of d.events){g.fillStyle=['#68c4c4','#d3ae79','#9ba7ff','#ea92d5','#8499ab','#b2cc80','#586779'][e.resource];g.fillRect(145+e.start_ms/span*900,10+e.resource*26,Math.max(1,(e.end_ms-e.start_ms)/span*900),15)}
+ g.fillStyle='#cfdae2';g.fillText('0 ms',145,239);g.fillText(fmt(span)+' ms',970,239);
+ c.onmousemove=ev=>{const x=(ev.clientX-c.getBoundingClientRect().left)/c.getBoundingClientRect().width*c.width,y=(ev.clientY-c.getBoundingClientRect().top)/c.getBoundingClientRect().height*c.height,lane=Math.floor((y-10)/26),t=(x-145)/900*span; c.title=d.events.filter(e=>e.resource===lane&&e.start_ms<=t&&e.end_ms>=t).map(e=>d.stages[e.stage].name+': '+fmt(e.end_ms-e.start_ms)+' ms').join('\n')};
+}
+function update(d){enabled=d.enabled;el('toggle').textContent=enabled?'Turn diagnostics off':'Turn diagnostics on';el('mode').textContent=enabled?'Diagnostics on · requested at 1 Hz':'Diagnostics off · pipeline continues';
+ el('overhead').textContent=JSON.stringify({diagnostic_work:d.diagnostic_work,on_off_comparison:d.modes},null,2);
+ if(!d.ready){el('warning').textContent=d.enabled?'Waiting for the next completed pair. Preview requests never delay capture.':'Diagnostics off. The last displayed image is frozen; capture and inference continue.';return}
+ last=d;if(d.bmp)el('preview').src=d.bmp;
+ el('warning').textContent='Trigger '+d.pair_id+' · '+(enabled?'live snapshot':'last snapshot, frozen while off')+' · left '+(d.capture_only?'calibration capture':d.metric_valid[0]?'metric estimator accepted':'relative only')+' · right '+(d.capture_only?'calibration capture':d.metric_valid[1]?'metric estimator accepted':'relative only')+'. Hardware accuracy remains unvalidated.';
+ el('summary').textContent='Pair work '+fmt(d.pair_ms)+' ms · rolling throughput '+fmt(d.rolling_pairs_s)+' pairs/s · input age at server '+fmt(d.input_age_ms)+' ms\n'+
+ 'From PWM command: first eye dequeued '+fmt(d.first_capture_ms)+' ms; both dequeued '+fmt(d.complete_capture_ms)+' ms; first depth ready '+fmt(d.first_eye_ms)+' ms; both depths ready '+fmt(d.complete_inference_ms)+' ms\n'+
+ 'Main CPU '+fmt(d.main_cpu_ms)+' ms · helper CPU '+fmt(d.helper_cpu_ms)+' ms · submit pipe poll wait '+fmt(d.submit_queue_wait_ms)+' ms · response pipe poll wait '+fmt(d.receive_wait_ms)+' ms\n'+
+ 'Observed V4L2 sequence gaps left/right '+d.sequence_gaps.join('/')+' · rolling '+d.rolling_sequence_gaps.join('/')+' · skipped preview snapshots '+d.snapshot_skips+' · trace overflow '+d.trace_overflow;
+ timeline(d);el('window').textContent=d.rolling_pairs+' of at most 64 processed pairs. Missing/disabled stages show “—”, not zero measurements. Stage percentiles sum repeated calls only within that stage; never sum rows to estimate throughput.';
+ el('stages').replaceChildren(...d.stages.map(s=>{const tr=document.createElement('tr');for(const v of [s.name,s.calls?fmt(s.ms):'—',s.calls?fmt(s.cpu_ms):'—',s.samples?fmt(s.p50_ms):'—',s.samples?fmt(s.p95_ms):'—',s.samples]){const td=document.createElement('td');td.textContent=v;tr.append(td)}return tr}));
+ const occupancy=d.host_call_occupancy_ms.map((v,i)=>resources[i]+': '+fmt(v)+' ms ('+fmt(100*v/Math.max(1,d.pair_ms))+'%)').join('; ');
+ const receive=d.events.filter(e=>d.stages[e.stage].name==='helper receive/wait');let overlap=0;
+ for(const a of receive)for(const b of d.events.filter(e=>e.resource===3))overlap+=Math.max(0,Math.min(a.end_ms,b.end_ms)-Math.max(a.start_ms,b.start_ms));
+ let evidence='No queued pair backlog: next trigger waits for completion. ';
+ if(overlap>0)evidence+='Response wait overlaps the NPU API call for '+fmt(overlap)+' ms: helper completion is a critical-path candidate; this does not prove device saturation. ';
+ if(d.main_cpu_ms>d.pair_ms*.7)evidence+='Main thread used over 70% of pair wall time: CPU work is a candidate. ';
+ evidence+='Submit pipe waits '+fmt(d.submit_queue_wait_ms)+' ms provide IPC/backpressure evidence, including poll overhead. Sensor losses not visible in V4L2 sequence numbers are unknown. ';
+ el('bottleneck').textContent=evidence+'Interval-union host occupancy (overlap retained): '+occupancy+'. Hardware busy counters and internal submit/wait splits unavailable; no summed-stage bottleneck claim.';
+}
+async function poll(){if(busy||!el('refresh').checked)return;busy=true;try{const r=await fetch('/api/frame',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);update(await r.json())}catch(e){el('mode').textContent='Disconnected: '+e.message}finally{busy=false}}
+el('toggle').onclick=async()=>{try{await fetch('/api/diagnostics/'+(enabled?'off':'on'),{method:'POST'});await poll()}catch(e){el('mode').textContent=e.message}};
+setInterval(poll,1000);poll();
+</script></html>

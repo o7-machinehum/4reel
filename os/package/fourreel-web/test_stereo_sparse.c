@@ -1,4 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
 #include "stereo_sparse.h"
+#include "stereo_trace.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -27,7 +29,14 @@ int main(void)
         if(!ds_project(&c.eye[0],p,xy)) r[y*1280+x]=(uint8_t)round(sample(l,xy[0],xy[1]));
     }
     struct StereoMatch matches[STEREO_MAX_ANCHORS];
-    unsigned n=stereo_sparse(l,r,&c,matches),good=0;
+    struct Trace trace={.enabled=1};
+    unsigned n=stereo_sparse_timed(l,r,&c,matches,&trace),good=0;
+    assert(trace.count==5 && !trace.overflow);
+    for(unsigned i=0;i<5;++i) {
+        assert(trace.event[i].stage==TS_PYRAMID+i);
+        assert(trace.event[i].resource==TR_MAIN);
+        assert(trace.event[i].end>=trace.event[i].begin);
+    }
     for(unsigned i=0;i<n;++i) good+=fabs(matches[i].z[0]-2)<.12;
     printf("synthetic DS plane: %u anchors, %u within 6%% of 2 m\n",n,good);
     assert(n>=12 && good*10>=n*9);

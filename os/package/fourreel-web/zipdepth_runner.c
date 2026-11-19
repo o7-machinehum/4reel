@@ -1,6 +1,6 @@
 /* Official librknnmrt runs in a private glibc process; never dlopen it in musl.
- * Pipe protocol (little endian ARM/host): uint64 pair ID, two 1280x800 uint8
- * images -> same ID, two float32 320x224 predictions. One shared context.
+ * Versioned fixed-layout request + two native images -> response with pair ID,
+ * host timings + two float32 320x224 predictions. One shared context.
  * stdout is reserved for this protocol, diagnostics and SDK logs use stderr.
  */
 #define _POSIX_C_SOURCE 200809L
@@ -15,6 +15,7 @@
 #include <linux/dma-buf.h>
 #include "rknn_api.h"
 #include "im2d.h"
+#include "stereo_trace.h"
 
 #define W 320
 #define H 224
@@ -93,16 +94,25 @@ int main(int argc,char **argv)
     rga_buffer_t dst=wrapbuffer_fd_t(rga_dst->fd,W,200,W,200,RK_FORMAT_YCbCr_400);
     fprintf(stderr,"RKNN input stride=%u bytes=%u output stride=%u bytes=%u; shared context\n",is,ibytes,os,obytes);
     float predictions[2][W*H];
-    uint64_t id;
-    while(!read_all(STDIN_FILENO,&id,sizeof(id))) {
+    struct RunnerRequest request;
+    while(!read_all(STDIN_FILENO,&request,sizeof(request))) {
+        if(request.protocol!=TRACE_PROTOCOL) goto done;
+        struct RunnerResponse response={.id=request.id,.trace={.enabled=request.enabled}};
+        uint64_t thread_start=trace_clock(CLOCK_THREAD_CPUTIME_ID);
         if(read_all(STDIN_FILENO,native,2*RAW_BYTES)) goto done;
         for(unsigned eye=0;eye<2;++eye) {
+            unsigned offset=eye ? TS_SOURCE_R-TS_SOURCE_L:0;
+            struct TraceMark m=trace_begin(&response.trace);
             if(cpu_access(rga_src,DMA_BUF_SYNC_START|DMA_BUF_SYNC_WRITE)) goto done;
             memcpy(rga_src->virt_addr,native+eye*RAW_BYTES,RAW_BYTES);
             if(cpu_access(rga_src,DMA_BUF_SYNC_END|DMA_BUF_SYNC_WRITE)) goto done;
+            trace_end(&response.trace,m,TS_SOURCE_L+offset,TR_HELPER);
+            m=trace_begin(&response.trace);
             if(imresize_t(src,dst,0,0,IM_INTERP_AVERAGE,1)!=IM_STATUS_SUCCESS) {
                 fprintf(stderr,"RGA native gray resize failed; no silent CPU substitution\n"); goto done;
             }
+            trace_end(&response.trace,m,TS_RGA_L+offset,TR_RGA);
+            m=trace_begin(&response.trace);
             if(cpu_access(rga_dst,DMA_BUF_SYNC_START|DMA_BUF_SYNC_READ)) goto done;
             memset(in->virt_addr,0,ibytes);
             for(unsigned y=0;y<200;++y)
@@ -111,11 +121,19 @@ int main(int argc,char **argv)
             /* Default rknn_run synchronizes bound input/output caches. Neither
              * RKNN_FLAG_DISABLE_FLUSH_* flag is set. rknn_run is synchronous.
              */
+            trace_end(&response.trace,m,TS_TENSOR_L+offset,TR_HELPER);
+            m=trace_begin(&response.trace);
             if(rknn_run(ctx,NULL)) goto done;
+            trace_end(&response.trace,m,TS_NPU_L+offset,TR_NPU);
+            m=trace_begin(&response.trace);
             for(unsigned y=0;y<H;++y) memcpy(predictions[eye]+y*W,(float *)out->virt_addr+y*os,W*4);
             for(unsigned i=0;i<W*H;++i) if(!isfinite(predictions[eye][i])) goto done;
+            trace_end(&response.trace,m,TS_OUTPUT_L+offset,TR_HELPER);
+            if(!eye) response.first_eye_us=trace_clock(CLOCK_MONOTONIC);
         }
-        if(write_all(protocol,&id,sizeof(id)) || write_all(protocol,predictions,sizeof(predictions))) goto done;
+        response.complete_us=trace_clock(CLOCK_MONOTONIC);
+        response.cpu_us=trace_clock(CLOCK_THREAD_CPUTIME_ID)-thread_start;
+        if(write_all(protocol,&response,sizeof(response)) || write_all(protocol,predictions,sizeof(predictions))) goto done;
     }
     result=0;
 done:

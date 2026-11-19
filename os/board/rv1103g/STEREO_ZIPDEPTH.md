@@ -249,3 +249,117 @@ specific unit, and validate central metric accuracy against measured targets
 across depth/texture/lighting and motion. Quantify peripheral extrapolation
 separately. RVE corner/LK acceleration, continuous-trigger scheduling and tuning
 to 10 pairs/s remain unverified/unimplemented optimizations.
+
+## Low-load live preview and bottleneck diagnostics
+
+For continuous operation without filling the SD card, stop the old dashboard,
+then run (add the calibration option when the correct unit file is installed):
+
+```sh
+/etc/init.d/S85fourreel-web stop
+4reel-stereo --unit YOUR_UNIT_ID --live \
+  --calibration /etc/4reel/unit.ds
+# Without a unit file, omit --calibration: output remains relative.
+```
+
+Open `http://192.168.77.1:8081/` on the connected workstation. The listener binds
+all interfaces, like the existing local-device dashboard; use it on the trusted
+device network. `--preview-port N` changes the port; `0` disables HTTP entirely.
+The original dashboard is unchanged. Stop the stereo process before restarting
+`S85fourreel-web`. `--live` does not write pair files and runs until interrupted;
+use the original `--output DIR --count N` modes to save full maps/calibration
+pairs. Do not combine `--live` with `--output` or `--capture`.
+
+The default browser refresh is **1 Hz**. The server also caps new preview and
+statistics generation to once per second across clients. Opening no viewer
+means no image snapshots, encoding or preview traffic. Unticking refresh stops
+requests; capture and inference continue. Each response embeds a small BMP
+mosaic (160x100 per tile): physical left/right mono above their respective depth.
+One decimal-string trigger ID covers all four tiles, status and timeline.
+Metric output uses a fixed logarithmic 0.15–20 m colour range; relative maps use
+independent per-eye ranges and have **no metric scale**. Black means invalid;
+grey hatching identifies peripheral metric extrapolation. The existing full
+PFM/support files remain the data interface for precise saved-map retrieval.
+
+`GET /api/frame` returns the composite and telemetry together. It requests a
+snapshot of the next completed pair and returns the previous completed snapshot
+(or `ready:false` initially). This deliberate one-refresh delay avoids waiting
+for capture. Input age is displayed, and IDs identify stale snapshots. The main
+thread only **trylocks** the snapshot slot and copies buffers when requested;
+it never waits for HTTP. A busy viewer causes a skipped preview copy, not a
+camera-pipeline wait. The HTTP worker performs reduction, colour mapping, BMP
+encoding, JSON/percentiles and socket work. It accepts one client at a time,
+limits request reads to 0.5 s and sends to 2 s. Slow or excessive clients cannot
+queue pair work. The bitmap response is about 260 KiB at 1 Hz. The preview/ring,
+extra second-eye map and transient encoding allocations add approximately
+4 MiB of userspace memory; **peak RAM and contention still require board tests**.
+
+With diagnostics on, every processed pair enters a fixed **64-pair ring**, with
+at most **64 timestamped events per pair**. Overflow is reported. Stage clocks
+use host `CLOCK_MONOTONIC`; CPU time uses `CLOCK_THREAD_CPUTIME_ID` separately
+for the main, glibc helper and HTTP threads. The helper response carries its
+host timings alongside the same pair ID. Failed capture/inference attempts are
+recorded before the existing fail-fast exit; stderr reports the failure, and
+no fabricated image is published. The server stops with the process, so this
+ring is intentionally not a persistent flight recorder.
+
+The displayed pair includes capture/pairing (including quiet guards, PWM
+submission, polling and per-eye dequeue/unpack); per-eye DMA source, RGA resize,
+tensor/cache preparation, synchronous NPU call and output copy; sparse pyramid,
+corners, epipolar/forward LK, reverse validation and triangulation; independent
+fits and map generation; file output when selected; and snapshot/record cost.
+Missing stages are unavailable, not zero-duration measurements. Rolling p50/p95
+use nearest-rank quantiles over only pairs containing that stage. Repeated
+calls within a stage (capture polls or file writes) are summed for that stage.
+The ring resets when diagnostics mode changes to avoid mixing disabled intervals
+into the rolling rate.
+
+The timeline preserves concurrent scopes. Resource occupancy is the **union**
+of intervals for that resource divided by pair wall duration, never the sum of
+all stages. CPU scope duration includes scheduling; the separate thread CPU
+column measures execution. RGA/NPU durations are **host-observed synchronous API
+entry-to-return**, including submit/wait/cache overhead; internal device submit,
+wait and completion counters are unavailable. The return is an observed
+completion boundary, not a measured interrupt timestamp. RVE is explicitly
+unused because sparse stereo uses the bounded CPU backend. The UI identifies
+critical-path candidates from response-wait/NPU overlap and main-thread CPU
+occupancy, and reports pipe waits; it does not claim device saturation from
+those envelopes. Cold-start model initialization can appear as initial submit
+backpressure. It is not mislabeled NPU inference time.
+
+There is at most one pair in flight and no pending pair queue: the next trigger
+follows completed processing. Submit/response `poll()` wait totals include
+syscall overhead. V4L2 sequence gaps are reported per eye and over the ring;
+these are observed gaps, not proof of every sensor-side dropped frame. Missing,
+extra or ambiguous triggered frames still fail the pipeline. Preview skips are
+reported separately from capture gaps. Throughput is completed pairs over the
+observed ring wall interval. Input age uses the older monotonic V4L2 timestamp,
+not an independently measured exposure time. Time to first/both captures uses
+successful dequeue observations; time to first/both depth maps uses helper
+output readiness, all relative to the host PWM command. First-eye readiness
+does not mean that eye was transmitted before the second eye finished.
+
+The UI toggle, `POST /api/diagnostics/off` / `on`, or startup
+`--diagnostics-off` allows an on/off comparison while the pipeline continues.
+Off removes stage tracing, ring copies and image snapshots/encoding; minimal
+pair-boundary clocks, helper total CPU time and aggregate comparison counters
+remain (plus operational timeout clocks and small control HTTP responses). Samples show pair throughput and
+main/helper CPU cost per pair in each mode. Off/on groups are observational:
+compare the same scene, calibration and settings; a scene change is a confounder.
+Preview/HTTP elapsed and CPU costs refer to the preceding request so they never
+claim to include their own future transmission. HTTP elapsed includes preview
+work; do not add those fields. Trace-record/snapshot cost is shown separately.
+
+### Host-only diagnostic validation
+
+`test_stereo_trace.c` uses explicit known mock intervals to check overlap union,
+nearest-rank p50/p95, missing stages, fixed-ring wrap, overflow, disabled tracing
+and the musl/glibc protocol sizes. `test_stereo_preview.c` is a separate,
+non-installed mock fixture checking matching trigger/eye content, bitmap and
+validity encoding, demand/rate limits, nonblocking producer under a held mutex,
+and HTTP on/off controls. Mock values are never linked into the production
+runner and are not hardware performance evidence. The sparse numerical tests
+also cover the staged implementation. The image inspection verifies the HTML,
+updated ARM binaries, original services, private libraries and actual model.
+Board boot, memory, FSIN, DMA/RGA/NPU operation, real timing and sustained
+throughput remain unverified. Nothing in this UI changes that qualification.

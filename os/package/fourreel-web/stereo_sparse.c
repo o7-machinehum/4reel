@@ -1,4 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
 #include "stereo_sparse.h"
+#include "stereo_trace.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -60,16 +62,20 @@ static void half(const uint8_t *s,uint8_t *d,int w,int h)
     }
 }
 
-unsigned stereo_sparse(const uint8_t *left,const uint8_t *right,
-                       const struct StereoCalibration *cal,struct StereoMatch *matches)
+unsigned stereo_sparse_timed(const uint8_t *left,const uint8_t *right,
+                       const struct StereoCalibration *cal,struct StereoMatch *matches,struct Trace *trace)
 {
     if(!stereo_calibration_valid(cal)) return 0;
     uint8_t *storage=malloc(2*(640*400+320*200));
     if(!storage) return 0;
     const uint8_t *p[2][3]={{left,storage,storage+640*400},
                            {right,storage+640*400+320*200,storage+2*640*400+320*200}};
+    struct TraceMark timing=trace_begin(trace);
     for(int e=0;e<2;++e) { half(p[e][0],(uint8_t *)p[e][1],1280,800); half(p[e][1],(uint8_t *)p[e][2],640,400); }
-    unsigned n=0;
+    trace_end(trace,timing,TS_PYRAMID,TR_MAIN);
+    timing=trace_begin(trace);
+    struct StereoMatch candidates[96];
+    unsigned nc=0,nm=0,nr=0,n=0;
     /* 12x8 cells, one well-conditioned corner each, <=96 native anchors. */
     for(int gy=0;gy<8;++gy) for(int gx=0;gx<12;++gx) {
         double best_corner=40; int cx=-1,cy=-1;
@@ -85,7 +91,13 @@ unsigned stereo_sparse(const uint8_t *left,const uint8_t *right,
             if(score>best_corner) { best_corner=score; cx=x; cy=y; }
         }
         if(cx<0) continue;
-        double lx=4*cx+1.5,ly=4*cy+1.5,ray[3];
+        candidates[nc++]=(struct StereoMatch){.xy={{4*cx+1.5,4*cy+1.5},{0,0}}};
+    }
+    trace_end(trace,timing,TS_CORNERS,TR_MAIN);
+    timing=trace_begin(trace);
+    for(unsigned c=0;c<nc;++c) {
+        double lx=candidates[c].xy[0][0],ly=candidates[c].xy[0][1],ray[3];
+        double cx=(lx-1.5)/4,cy=(ly-1.5)/4;
         if(ds_ray(&cal->eye[0],lx,ly,ray) || ray[2]<=0) continue;
         double scores[128],positions[128][2],best=1e9; int winner=-1;
         for(int k=0;k<128;++k) {
@@ -113,13 +125,29 @@ unsigned stereo_sparse(const uint8_t *left,const uint8_t *right,
             rx=(x+.5)*scale-.5; ry=(y+.5)*scale-.5;
         }
         if(bad || rx<256 || rx>1024 || ry<160 || ry>640) continue;
+        candidates[nm++]=(struct StereoMatch){.xy={{lx,ly},{rx,ry}},.weight=1/(1+best)};
+    }
+    trace_end(trace,timing,TS_MATCH,TR_MAIN);
+    timing=trace_begin(trace);
+    for(unsigned c=0;c<nm;++c) {
+        double lx=candidates[c].xy[0][0],ly=candidates[c].xy[0][1];
+        double rx=candidates[c].xy[1][0],ry=candidates[c].xy[1][1];
         double backx=lx,backy=ly;
         if(lk(right,left,1280,800,rx,ry,&backx,&backy) || hypot(backx-lx,backy-ly)>.6 ||
            cost(left,right,1280,800,lx,ly,rx,ry)>20) continue;
-        struct StereoMatch m={.xy={{lx,ly},{rx,ry}},.weight=1/(1+best)};
+        candidates[nr++]=candidates[c];
+    }
+    trace_end(trace,timing,TS_REVERSE,TR_MAIN);
+    timing=trace_begin(trace);
+    for(unsigned c=0;c<nr;++c) {
+        struct StereoMatch m=candidates[c];
         if(stereo_triangulate(cal,m.xy[0],m.xy[1],m.z)) continue;
         matches[n++]=m;
     }
+    trace_end(trace,timing,TS_TRIANGULATE,TR_MAIN);
     free(storage);
     return n;
 }
+
+unsigned stereo_sparse(const uint8_t *l,const uint8_t *r,const struct StereoCalibration *c,struct StereoMatch *m)
+{ return stereo_sparse_timed(l,r,c,m,NULL); }

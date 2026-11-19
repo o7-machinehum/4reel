@@ -56,6 +56,8 @@ def main():
              "/opt/4reel-rknn/bin/zipdepth-runner",
              "/usr/share/4reel-stereo/zipdepth-mono-rv1103.rknn",
              "/usr/share/4reel-stereo/manifest.json",
+             "/usr/share/4reel-stereo/preview.html",
+             "/usr/share/4reel-stereo/STEREO_ZIPDEPTH.md",
              "/etc/init.d/S85fourreel-web", "/etc/init.d/S50dropbear",
              "/etc/network/interfaces", "/etc/dnsmasq.conf"]
     files += ["/opt/4reel-rknn/lib/"+x for x in

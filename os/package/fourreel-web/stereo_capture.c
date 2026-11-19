@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "stereo_capture.h"
 #include "stereo_metric.h"
+#include "stereo_trace.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/v4l2-subdev.h>
@@ -26,6 +27,8 @@ static struct Camera cams[2]={{.fd=-1,.sensor=-1},{.fd=-1,.sensor=-1}};
 static char pwm[128];
 static int raw8_mode;
 static uint64_t next_id;
+static uint32_t previous_sequence[2];
+static int sequence_seen[2];
 
 static uint64_t now_us(void)
 {
@@ -170,32 +173,47 @@ int stereo_capture_open(int raw8)
     }
     if(quiet(100)) goto fail;
     next_id=now_us();
+    memset(sequence_seen,0,sizeof(sequence_seen));
     return 0;
 fail:
     { int e=errno; stereo_capture_close(); errno=e; return -1; }
 }
 
-int stereo_capture_pair(uint8_t *left,uint8_t *right,struct CapturePair *pair)
+int stereo_capture_pair_timed(uint8_t *left,uint8_t *right,struct CapturePair *pair,struct Trace *trace)
 {
     memset(pair,0,sizeof(*pair));
+    struct TraceMark m=trace_begin(trace);
     if(quiet(10)) return -1;
+    trace_end(trace,m,TS_QUIET_PRE,TR_WAIT);
+    m=trace_begin(trace);
     pair->id=++next_id; pair->trigger_before_us=now_us();
     if(pwm_write("enable","1")) return -1;
     pair->trigger_after_us=now_us();
+    trace_end(trace,m,TS_TRIGGER,TR_MAIN);
     unsigned ready=0;
     while(ready!=3 && now_us()-pair->trigger_before_us<200000) {
         struct pollfd f[2];
         for(int e=0;e<2;++e) f[e]=(struct pollfd){.fd=cams[e].fd,.events=(ready&(1u<<e)) ? 0:POLLIN};
+        m=trace_begin(trace);
         int ret=poll(f,2,10);
+        trace_end(trace,m,TS_CAPTURE_WAIT,TR_WAIT);
         if(ret<0) { if(errno==EINTR) continue; goto fail; }
         for(unsigned e=0;e<2;++e) if(f[e].revents&POLLIN) {
+            m=trace_begin(trace);
             struct Camera *c=&cams[e]; struct v4l2_plane p={0};
             struct v4l2_buffer b={.type=V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,.memory=V4L2_MEMORY_MMAP,.length=1,.m.planes=&p};
             if(xio(c->fd,VIDIOC_DQBUF,&b)) goto fail;
+            pair->dequeued_us[e]=now_us();
             if(b.index>=c->count || b.flags&V4L2_BUF_FLAG_ERROR ||
                (b.flags&V4L2_BUF_FLAG_TIMESTAMP_MASK)!=V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC ||
                p.data_offset || p.bytesused<c->stride*800 || p.bytesused>c->size[b.index]) { errno=EPROTO; goto fail; }
             pair->sequence[e]=b.sequence; pair->flags[e]=b.flags;
+            if(sequence_seen[e]) {
+                uint32_t delta=b.sequence-previous_sequence[e];
+                if(!delta || delta>0x7fffffffu) { errno=EPROTO; goto fail; }
+                pair->sequence_gap[e]=delta-1;
+            }
+            previous_sequence[e]=b.sequence; sequence_seen[e]=1;
             pair->timestamp_us[e]=(int64_t)b.timestamp.tv_sec*1000000+b.timestamp.tv_usec;
             if(pair->timestamp_us[e]<(int64_t)pair->trigger_before_us ||
                pair->timestamp_us[e]>(int64_t)now_us()) { errno=EPROTO; goto fail; }
@@ -216,13 +234,19 @@ int stereo_capture_pair(uint8_t *left,uint8_t *right,struct CapturePair *pair)
             }
             if(queue(c,b.index)) goto fail;
             ready|=1u<<e;
+            trace_end(trace,m,e ? TS_UNPACK_R:TS_UNPACK_L,TR_MAIN);
         }
     }
     if(pwm_write("enable","0")) return -1;
+    m=trace_begin(trace);
     if(ready!=3 || llabs(pair->timestamp_us[0]-pair->timestamp_us[1])>2000 || quiet(20)) {
         errno=EPROTO; return -1;
     }
+    trace_end(trace,m,TS_QUIET_POST,TR_WAIT);
     return 0;
 fail:
     { int e=errno; pwm_write("enable","0"); errno=e; return -1; }
 }
+
+int stereo_capture_pair(uint8_t *l,uint8_t *r,struct CapturePair *p)
+{ return stereo_capture_pair_timed(l,r,p,NULL); }
