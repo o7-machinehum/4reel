@@ -1,0 +1,4 @@
+# Locally calculated, pinned RKNN SDK v2.5.0 artifacts.
+sha256  a26ab05da1779143aa744d4db8d34319a58e94c52895f95be49112c5ede94c42  librknnmrt.a
+sha256  2d4160cd868efd7b83a72587e411c16d6972da5876e067bd73665cea778ce666  rknn_api.h
+sha256  d005b4a9a787ac1023fc7d353d9f263047e892b4edb9207303915e4a29b93c8e  LICENSE

@@ -36,9 +36,11 @@
     input[type=checkbox] { width: 1.15rem; height: 1.15rem; }
     .check { display: flex !important; align-items: center; gap: .45rem !important; min-height: 2.5rem; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+    .zipdepth-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     figure { margin: 0; min-width: 0; }
     figcaption { padding: .35rem 0; }
-    .depth-key { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .35rem; margin-top: .5rem; text-align: center; font-size: .85rem; }
+    .depth-key { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; text-align: center; font-size: .85rem; }
+    .depth-key > span { flex: 1 0 2.8rem; white-space: nowrap; }
     .depth-swatch { display: block; height: .85rem; margin-bottom: .2rem; border: 1px solid #667981; border-radius: .2rem; }
     .photo { position: relative; width: 100%; aspect-ratio: 8 / 5; background: #0a0e10; overflow: hidden; border: 1px solid #39474e; border-radius: .4rem; }
     .photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -65,17 +67,21 @@
     .diag-card { padding: .55rem .7rem; background: #11181d; border: 1px solid #34434b; border-radius: .4rem; }
     .diag-card small { display: block; }
     .diag-card output { font: 600 1.05rem/1.5 ui-monospace, monospace; }
-    .diag-bars { display: grid; gap: .45rem; margin-top: .75rem; }
-    .diag-row { display: grid; grid-template-columns: 7rem minmax(5rem, 1fr) 8rem; align-items: center; gap: .6rem; }
-    .diag-track { height: .55rem; overflow: hidden; background: #0a0e10; border-radius: 1rem; }
-    .diag-fill { display: block; width: 0; height: 100%; background: #49aac6; border-radius: inherit; transition: width .15s ease; }
-    .diag-time { text-align: right; font: .9rem/1.4 ui-monospace, monospace; }
-    #diag-summary { color: #b9dce8; }
+    .profile-scroll { overflow-x: auto; }
+    .profile-timeline { display: block; width: 100%; height: 215px; background: #11181d; border: 1px solid #34434b; border-radius: .4rem; }
+    .profile-timeline-note { min-height: 1.5em; margin: .35rem 0 .8rem; }
+    .profile-table { width: 100%; min-width: 36rem; border-collapse: collapse; }
+    .profile-table th, .profile-table td { padding: .45rem .65rem; border-bottom: 1px solid #34434b; }
+    .profile-table th { text-align: left; }
+    .profile-table td, .profile-table thead th:not(:first-child) { text-align: right; }
+    .profile-table td { font: .88rem/1.4 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .profile-table tbody tr[data-nested] th { padding-left: 1.6rem; color: #a9c6d0; }
+    .profile-table tbody th { font-weight: 500; }
+    .profile-table .profile-group th { background: #11181d; color: #b9dce8; font-weight: 600; }
     ol { padding-left: 1.4rem; }
     li { margin-bottom: .3rem; }
     @media (max-width: 700px) {
       .grid { grid-template-columns: 1fr; }
-      .diag-row { grid-template-columns: 6rem minmax(3rem, 1fr) 7.5rem; gap: .4rem; }
       header, main { padding: .7rem; }
     }
   </style>
@@ -94,6 +100,7 @@
       <button id="tab-focus" role="tab" aria-selected="false" aria-controls="panel-focus" tabindex="-1" data-tab="focus">Focus</button>
     </nav>
     <div class="panel row">
+      <label>Depth pipeline <select id="pipeline"><option value="both">Stereo + ZipDepth</option><option value="stereo">Stereo</option><option value="zipdepth">ZipDepth</option></select></label>
       <button id="capture" type="button" aria-pressed="false">Start depth capture</button>
       <span id="capture-mode">Depth mode · 160 × 100</span>
       <span class="metric">Frames: <span id="frames">—</span></span>
@@ -108,7 +115,7 @@
       </div>
     </section>
     <section class="panel" aria-labelledby="depth-title">
-      <h2 id="depth-title">Depth map</h2>
+      <h2 id="depth-title">Stereo depth</h2>
       <div class="grid">
         <figure>
           <div class="photo"><img id="live-depth" alt="Color depth map" hidden><span id="empty-depth" class="empty">Start capture to view depth</span></div>
@@ -119,9 +126,35 @@
         </figure>
         <div>
           <p id="calibration-state">Calibration: checking…</p>
-          <p class="muted">This is an approximate two-point stereo depth estimate. Textureless, reflective, moving, or occluded areas may have no reliable depth.</p>
+          <p class="muted">Fisheye calibration rectifies the shared camera view and supplies its metric depth scale. The two-point tool provides an approximate scale. Textureless, reflective, moving, or occluded areas may have no reliable depth.</p>
           <p><a href="/api/depth.pgm">Download 16-bit depth map (millimetres, 0 = invalid)</a></p>
         </div>
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="neural-title">
+      <h2 id="neural-title">ZipDepth</h2>
+      <p id="neural-state" role="status">Start capture with ZipDepth or Stereo + ZipDepth.</p>
+      <p id="neural-view" class="muted">Perspective input from the native camera frames.</p>
+      <div class="grid zipdepth-grid">
+        <figure>
+          <div class="photo"><img id="live-neural-left" alt="Original ZipDepth relative depth" hidden><span id="empty-neural-left" class="empty">Waiting for a ZipDepth prediction</span></div>
+          <figcaption>
+            <span>Original ZipDepth · relative</span>
+            <div id="neural-depth-key" class="depth-key" aria-label="Relative ZipDepth scale"></div>
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="photo"><img id="live-zipdepth-metric" alt="ZipDepth calibrated to stereo distances" hidden><span id="empty-zipdepth-metric" class="empty">Requires stereo measurements at different distances</span></div>
+          <figcaption>
+            <span>Calibrated ZipDepth</span>
+            <div id="zipdepth-metric-legend" hidden>
+              <div id="zipdepth-metric-key" class="depth-key" aria-label="Calibrated ZipDepth distance scale"></div>
+              <small id="zipdepth-metric-state">Estimated distance · black = invalid</small>
+              <p><a href="/api/zipdepth.pgm">Download ZipDepth in millimetres</a></p>
+            </div>
+          </figcaption>
+        </figure>
+        <figure><div class="photo"><img id="live-neural-input-left" alt="Perspective input for left ZipDepth prediction" hidden><span id="empty-neural-input-left" class="empty">No neural input frame yet</span></div><figcaption>Left perspective input</figcaption></figure>
       </div>
     </section>
     <section class="panel" aria-labelledby="acc-title">
@@ -132,29 +165,53 @@
     </div>
     <div id="panel-profiling" role="tabpanel" aria-labelledby="tab-profiling" hidden>
     <section class="panel" aria-labelledby="diag-title">
-      <h2 id="diag-title">Performance diagnostics</h2>
-      <p id="diag-summary">Waiting for timing data…</p>
-      <p><span id="diag-backend">Depth backend: waiting…</span> · <span id="diag-sad">SAD: —</span></p>
-      <div class="diag-grid">
-        <div class="diag-card"><small>Capture → processing</small><output id="diag-resolution">—</output></div>
-        <div class="diag-card"><small>Processed output</small><output id="diag-output-fps">—</output></div>
-        <div class="diag-card"><small>Camera input FPS</small><output id="diag-raw-fps">—</output></div>
-        <div class="diag-card"><small>Pipeline work/output</small><output id="diag-pair-total">—</output></div>
-        <div class="diag-card"><small>Skipped input frames</small><output id="diag-skipped">—</output></div>
-        <div class="diag-card"><small>Converted input frames</small><output id="diag-decoded">—</output></div>
-        <div class="diag-card"><small>Sync drops</small><output id="diag-sync-dropped">—</output></div>
-      </div>
-      <div class="diag-bars" aria-label="Processing-stage timing">
-        <div class="diag-row"><span>Unpack / downsample</span><span class="diag-track"><span id="diag-unpack-bar" class="diag-fill"></span></span><span id="diag-unpack" class="diag-time">—</span></div>
-        <div class="diag-row"><span>Depth match</span><span class="diag-track"><span id="diag-depth-bar" class="diag-fill"></span></span><span id="diag-depth" class="diag-time">—</span></div>
-        <div class="diag-row"><span>Auto exposure</span><span class="diag-track"><span id="diag-ae-bar" class="diag-fill"></span></span><span id="diag-ae" class="diag-time">—</span></div>
-        <div class="diag-row"><span>HTTP image</span><span class="diag-track"><span id="diag-http-image-bar" class="diag-fill"></span></span><span id="diag-http-image" class="diag-time">—</span></div>
-        <div class="diag-row"><span>HTTP status</span><span class="diag-track"><span id="diag-http-status-bar" class="diag-fill"></span></span><span id="diag-http-status" class="diag-time">—</span></div>
-      </div>
-      <p class="muted">Bars are relative to the slowest measured stage. Depth processing targets 30 FPS; full-resolution focus conversion is capped at 4 FPS before USB transfer.</p>
+      <h2 id="diag-title">Pipeline profiling</h2>
+      <p id="profile-cycle" class="muted">Waiting for a processed frame…</p>
+      <canvas id="profile-timeline" class="profile-timeline" role="img" aria-label="Timing of one camera pair through stereo and ZipDepth"></canvas>
+      <p id="profile-timeline-note" class="muted profile-timeline-note">Bars show elapsed time for this frame. Blank space includes waiting and work on other frames.</p>
+      <details>
+        <summary>Rates and averages</summary>
+        <p id="diag-backend">Waiting for depth backend…</p>
+        <div class="diag-grid">
+          <div class="diag-card"><small>4reel-web CPU</small><output id="profile-cpu">—</output></div>
+          <div class="diag-card"><small>NPU driver load</small><output id="profile-npu-load">—</output></div>
+          <div class="diag-card"><small>RKNN calls per second</small><output id="profile-npu-rate">—</output></div>
+          <div class="diag-card"><small>RKNN elapsed per call</small><output id="profile-npu-duration">—</output></div>
+        </div>
+        <p id="profile-state" class="muted">Waiting for profiling samples…</p>
+        <div class="profile-scroll" tabindex="0" aria-label="Scrollable pipeline timing table">
+          <table class="profile-table">
+            <thead><tr><th scope="col">Stage</th><th scope="col">Calls/s</th><th scope="col">CPU ms/s</th><th scope="col">CPU ms/call</th><th scope="col">Off-CPU ms/call</th><th scope="col">Elapsed ms/call</th></tr></thead>
+            <tbody id="profile-stages"></tbody>
+          </table>
+        </div>
+        <p class="muted">Off-CPU time includes driver waits and scheduling. Stereo includes the indented RVE calls. V4L2 control time also appears in the auto exposure or HTTP row that issued the write.</p>
+        <div class="diag-grid">
+          <div class="diag-card"><small>Capture → processing</small><output id="diag-resolution">—</output></div>
+          <div class="diag-card"><small>Processed output</small><output id="diag-output-fps">—</output></div>
+          <div class="diag-card"><small>Camera input FPS</small><output id="diag-raw-fps">—</output></div>
+          <div class="diag-card"><small>Pipeline work/output</small><output id="diag-pair-total">—</output></div>
+          <div class="diag-card"><small>Skipped input frames</small><output id="diag-skipped">—</output></div>
+          <div class="diag-card"><small>Converted input frames</small><output id="diag-decoded">—</output></div>
+          <div class="diag-card"><small>Sync drops</small><output id="diag-sync-dropped">—</output></div>
+        </div>
+      </details>
     </section>
     </div>
     <div id="panel-calibration" role="tabpanel" aria-labelledby="tab-calibration" hidden>
+    <section class="panel" aria-labelledby="fisheye-title">
+      <h2 id="fisheye-title">Fisheye stereo calibration</h2>
+      <p id="fisheye-state">Checking fisheye calibration…</p>
+      <p>Focus both lenses first. Capture a stationary checkerboard in varied positions across the shared view, then solve the calibration on your computer using the supplied calibration tool.</p>
+      <div class="row">
+        <button id="fisheye-capture" type="button">Start native calibration capture</button>
+        <a id="fisheye-pair" href="/api/calibration/pair.bin" download="fisheye-pair.bin" hidden>Download native stereo pair</a>
+        <label>Calibration file <input id="fisheye-file" type="file" accept=".txt,text/plain"></label>
+        <button id="fisheye-upload" type="button">Apply fisheye calibration</button>
+      </div>
+      <p id="fisheye-feedback" role="status"></p>
+      <p class="muted">Native calibration capture pauses depth processing. Calibrated output covers the common rectified view. The camera clocks are independent, so keep the target still for each pair.</p>
+    </section>
     <section class="panel" aria-labelledby="control-title">
       <h2 id="control-title">Camera controls</h2>
       <div class="row">
@@ -165,7 +222,7 @@
           <button type="submit">Apply settings</button>
         </form>
       </div>
-      <p class="muted">Automatic exposure optimizes both cameras together for depth matching. In focus mode, it meters the selected camera and allows small bright reflections to clip. Exposure and gain remain visible as sensor control values, not milliseconds or dB.</p>
+      <p class="muted">Automatic exposure adjusts both cameras together. With ZipDepth enabled, it meters the left perspective input and the right stereo view and allows small bright reflections to clip. Focus meters the selected camera. Exposure and gain are sensor control values, not milliseconds or dB.</p>
     </section>
     <section class="panel" aria-labelledby="cal-title">
       <h2 id="cal-title">Calibrate depth</h2>
@@ -210,10 +267,15 @@
     let focusLastRequest = 0;
     let focusImageError = false;
     let settingsDirty = false;
+    let pipelineDirty = false;
+    let neuralShownFrame = -1;
+    let calibratedShownFrame = -1;
     let actionError = '';
     let statusRequest = null;
-    const pollIntervalMs = 100;
+    const pollIntervalMs = 75;
     const liveSides = ['left', 'right', 'depth'];
+    const neuralSides = ['neural-left', 'neural-input-left'];
+    let neuralPreviewPending = false;
 
     function selectTab(name) {
       activeTab = name;
@@ -223,7 +285,9 @@
         button.tabIndex = selected ? 0 : -1;
         $(`panel-${button.dataset.tab}`).hidden = !selected;
       }
-      shownFrame = focusShownFrame = -1;
+      shownFrame = focusShownFrame = neuralShownFrame = -1;
+      previousProfile = null;
+      if (name === 'profiling') refreshProfile();
     }
     const tabs = [...document.querySelectorAll('[role=tab]')];
     for (const [index, button] of tabs.entries()) {
@@ -334,9 +398,6 @@
 
     function renderDiagnostics(diagnostics) {
       $('diag-backend').textContent = diagnostics?.depth_backend || 'Depth backend unavailable';
-      $('diag-sad').textContent = Number.isFinite(diagnostics?.sad_ms)
-        ? `SAD submissions: ${diagnostics.sad_ms.toFixed(1)} ms / ${diagnostics.sad_passes} passes`
-        : 'SAD: —';
       const outputFps = diagnosticNumber(diagnostics, 'output_fps');
       const rawLeft = diagnosticNumber(diagnostics, 'raw_fps_left');
       const rawRight = diagnosticNumber(diagnostics, 'raw_fps_right');
@@ -351,25 +412,6 @@
       const captureHeight = diagnosticNumber(diagnostics, 'capture_height');
       const processingWidth = diagnosticNumber(diagnostics, 'processing_width');
       const processingHeight = diagnosticNumber(diagnostics, 'processing_height');
-      const unpackLeft = diagnosticNumber(diagnostics, 'unpack_ms_left');
-      const unpackRight = diagnosticNumber(diagnostics, 'unpack_ms_right');
-      const unpackTimes = [unpackLeft, unpackRight].filter(value => value !== null);
-      const measuredUnpackTotal = diagnosticNumber(diagnostics, 'unpack_ms');
-      const unpackTotal = measuredUnpackTotal !== null ? measuredUnpackTotal :
-        (unpackTimes.length === 2 ? unpackLeft + unpackRight :
-          (unpackTimes.length ? unpackTimes[0] : null));
-      const httpImage = diagnosticNumber(diagnostics, 'http_image_ms');
-      const httpStatus = diagnosticNumber(diagnostics, 'http_status_ms');
-      const stages = [
-        ['unpack', 'Unpack / downsample', unpackTotal,
-          unpackLeft === null || unpackRight === null ? null :
-            `${unpackTotal.toFixed(1)} ms total (L ${unpackLeft.toFixed(1)} · R ${unpackRight.toFixed(1)})`],
-        ['depth', 'Depth matching', diagnosticNumber(diagnostics, 'depth_ms'), null],
-        ['ae', 'Auto exposure', diagnosticNumber(diagnostics, 'ae_ms'), null],
-        ['http-image', 'HTTP image request', httpImage, httpImage === null ? null : `${httpImage.toFixed(1)} ms/request`],
-        ['http-status', 'HTTP status request', httpStatus, httpStatus === null ? null : `${httpStatus.toFixed(1)} ms/request`]
-      ];
-
       $('diag-resolution').textContent = [captureWidth, captureHeight, processingWidth, processingHeight].every(value => value !== null)
         ? `${Math.round(captureWidth)}×${Math.round(captureHeight)} → ${Math.round(processingWidth)}×${Math.round(processingHeight)}` : '—';
       $('diag-output-fps').textContent = outputFps === null ? '—' : `${outputFps.toFixed(1)} FPS`;
@@ -383,49 +425,198 @@
       $('diag-sync-dropped').textContent = syncDroppedLeft === null || syncDroppedRight === null
         ? '—' : `L ${Math.round(syncDroppedLeft)} · R ${Math.round(syncDroppedRight)}`;
 
-      const validStages = stages.filter(stage => stage[2] !== null);
-      const slowestMs = validStages.reduce((maximum, stage) => Math.max(maximum, stage[2]), 0);
-      for (const [id, , duration, display] of stages) {
-        $(`diag-${id}`).textContent = duration === null ? '—' : (display || `${duration.toFixed(1)} ms`);
-        $(`diag-${id}-bar`).style.width = duration === null || slowestMs <= 0
-          ? '0' : `${100 * duration / slowestMs}%`;
-      }
+    }
 
-      if (!diagnostics || (!validStages.length && outputFps === null && pairTotal === null)) {
-        $('diag-summary').textContent = 'No diagnostics reported by this firmware image.';
-        return;
-      }
-      if (!state.capture) {
-        $('diag-summary').textContent = 'Start capture to collect current performance data.';
-        return;
-      }
-      const rawRates = [rawLeft, rawRight].filter(value => value !== null);
-      const rawMinimum = rawRates.length ? Math.min(...rawRates) : null;
-      const processingStages = validStages.filter(stage => !stage[0].startsWith('http-'));
-      const slowest = processingStages.reduce((current, stage) => !current || stage[2] > current[2] ? stage : current, null);
-      if (state.mode === 'focus') {
-        $('diag-summary').textContent = 'Focus mode: one native-resolution camera, up to 4 conversions/s, no depth matching. USB transfer can further limit visible FPS.';
-      } else if (outputFps !== null && outputFps >= 28.0) {
-        $('diag-summary').textContent = slowest
-          ? `Output is meeting the 30 FPS target. The largest measured stage is ${slowest[1].toLowerCase()} (${slowest[2].toFixed(1)} ms).`
-          : 'Output is meeting the 30 FPS target.';
-      } else if (rawMinimum !== null && rawMinimum < 28.0) {
-        $('diag-summary').textContent = `Camera input is limiting output: the slower sensor is delivering ${rawMinimum.toFixed(1)} FPS.`;
-      } else if (pairTotal !== null && pairTotal > 33) {
-        $('diag-summary').textContent = slowest
-          ? `Pipeline work exceeds the 33 ms budget; ${slowest[1].toLowerCase()} is the largest measured stage.`
-          : `Pipeline work takes ${pairTotal.toFixed(1)} ms per output, over the 33 ms budget.`;
-      } else if (pairTotal !== null && outputFps !== null) {
-        $('diag-summary').textContent = 'Measured compute is within budget; check synchronization drops and per-request HTTP blocking.';
+    const profileStages = [
+      ['Camera'],
+      ['left_dequeue', 'Left V4L2 dequeue'], ['right_dequeue', 'Right V4L2 dequeue'],
+      ['left_requeue', 'Left V4L2 requeue'], ['right_requeue', 'Right V4L2 requeue'],
+      ['left_rectify', 'Left RAW10 conversion'], ['right_rectify', 'Right RAW10 conversion'],
+      ['exposure', 'Auto exposure'], ['sensor_control', 'V4L2 exposure / gain writes'],
+      ['Stereo'],
+      ['stereo', 'Stereo matching, total'],
+      ['rve_sad', 'RVE SAD submit + wait', true], ['rve_dma', 'RVE DMA cache sync', true],
+      ['stereo_refine', 'Subpixel and consistency checks', true],
+      ['ZipDepth and fusion'],
+      ['neural_remap', 'Left perspective remap'], ['neural_submit', 'Copy and submit frame'],
+      ['neural_queue', 'Worker queue wait'], ['neural_pack', 'Pack RGB input tensor'],
+      ['npu_run', 'RKNN run + wait'], ['neural_decode', 'Decode output tensor'],
+      ['fusion', 'Fit stereo scale and fill depth'],
+      ['HTTP'],
+      ['http_image', 'Image / depth response'], ['http_status', 'Status response'],
+      ['http_other', 'Controls / other responses']
+    ];
+    const profileRows = new Map();
+    for (const [key, label, nested] of profileStages) {
+      const row = $('profile-stages').insertRow();
+      const heading = document.createElement('th');
+      heading.scope = label ? 'row' : 'rowgroup';
+      heading.textContent = label || key;
+      row.append(heading);
+      if (!label) {
+        row.className = 'profile-group';
+        heading.colSpan = 6;
       } else {
-        $('diag-summary').textContent = 'Timing data is incomplete; capture a few frames and check again.';
+        if (nested) row.dataset.nested = '';
+        profileRows.set(key, Array.from({ length: 5 }, () => {
+          const cell = row.insertCell();
+          cell.textContent = '—';
+          return cell;
+        }));
+      }
+    }
+
+    let previousProfile = null;
+    let profilePending = false;
+    let profileLastPoll = -Infinity;
+    const timelineCanvas = $('profile-timeline');
+    const timelineNote = $('profile-timeline-note');
+    const defaultTimelineNote = timelineNote.textContent;
+    const timelineLanes = [
+      ['Camera I/O', '#72bfdc'], ['Camera CPU', '#83d9d3'], ['Stereo match', '#75b9ff'],
+      ['RVE SAD', '#a2a1ff'], ['RVE DMA', '#c3adff'], ['Refine + check', '#91a6ea'],
+      ['ZipDepth CPU', '#f3b674'],
+      ['RKNN call', '#ffdb83']
+    ];
+    let timelineSample;
+    let timelineLayout;
+
+    function drawTimeline() {
+      const width = timelineCanvas.clientWidth;
+      const height = timelineCanvas.clientHeight;
+      if (!width || !height) return;
+      const dpr = Math.min(devicePixelRatio, 2);
+      timelineCanvas.width = Math.round(width * dpr);
+      timelineCanvas.height = Math.round(height * dpr);
+      const ctx = timelineCanvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.font = '11px ui-monospace, monospace';
+      const left = 96, top = 16, bottom = height - 26;
+      const plotWidth = width - left - 14;
+      if (plotWidth <= 0) return;
+      const rowHeight = (bottom - top) / timelineLanes.length;
+      timelineLayout = { left, top, plotWidth, rowHeight };
+      const ms = timelineSample?.duration_ms || 0;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#31444f';
+      ctx.fillStyle = '#b0c4cd';
+      for (let i = 0; i <= 5; i++) {
+        const x = left + i * plotWidth / 5;
+        ctx.beginPath();
+        ctx.moveTo(x + .5, top);
+        ctx.lineTo(x + .5, bottom);
+        ctx.stroke();
+        ctx.textAlign = i === 0 ? 'left' : i === 5 ? 'right' : 'center';
+        if (ms && (plotWidth >= 290 || i === 0 || i === 5))
+          ctx.fillText(`${Math.round(i * ms / 5)} ms`, x, bottom + 15);
+      }
+      ctx.textAlign = 'right';
+      timelineLanes.forEach(([name, color], lane) => {
+        const y = top + lane * rowHeight;
+        ctx.fillStyle = '#d1e0e6';
+        ctx.fillText(name, left - 8, y + rowHeight * .68);
+        ctx.fillStyle = '#1a2930';
+        ctx.fillRect(left, y + 2, plotWidth, rowHeight - 4);
+        const row = timelineSample?.rows[lane] || '';
+        ctx.fillStyle = color;
+        for (let i = 0; i < row.length; i++) {
+          const level = Number(row[i]);
+          if (!level) continue;
+          ctx.globalAlpha = .2 + .8 * level / 9;
+          ctx.fillRect(left + plotWidth * i / row.length, y + 2,
+                       Math.max(1, plotWidth / row.length), rowHeight - 4);
+        }
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    window.addEventListener('resize', drawTimeline);
+    timelineCanvas.addEventListener('pointermove', event => {
+      if (!timelineSample || !timelineLayout) return;
+      const { left, top, plotWidth, rowHeight } = timelineLayout;
+      const lane = Math.floor((event.offsetY - top) / rowHeight);
+      const row = timelineSample.rows[lane];
+      const sample = Math.floor((event.offsetX - left) * (row?.length || 0) / plotWidth);
+      if (!row || sample < 0 || sample >= row.length) {
+        timelineNote.textContent = defaultTimelineNote;
+        return;
+      }
+      timelineNote.textContent = `${timelineLanes[lane][0]} · ${(sample * timelineSample.duration_ms / row.length).toFixed(1)} ms · ${Number(row[sample]) ? 'active in this slice' : 'idle in this slice'}`;
+    });
+    timelineCanvas.addEventListener('pointerleave', () => {
+      timelineNote.textContent = defaultTimelineNote;
+    });
+
+    function renderProfile(next) {
+      timelineSample = next.timeline;
+      $('profile-cycle').textContent = timelineSample?.frame
+        ? `Frame ${timelineSample.frame} · ${timelineSample.duration_ms.toFixed(1)} ms${timelineSample.zipdepth ? ' · includes ZipDepth' : ''}`
+        : 'Waiting for a processed frame…';
+      drawTimeline();
+      const old = previousProfile;
+      previousProfile = next;
+      const elapsed = old ? next.wall_ms - old.wall_ms : 0;
+      if (elapsed <= 0 || next.process_cpu_ms < old.process_cpu_ms) {
+        $('profile-state').textContent = 'Collecting a one-second sample…';
+        return;
+      }
+      const total = (next.process_cpu_ms - old.process_cpu_ms) * 100 / elapsed;
+      const main = (next.main_cpu_ms - old.main_cpu_ms) * 100 / elapsed;
+      $('profile-cpu').textContent = `${total.toFixed(1)}% · main ${main.toFixed(1)}%`;
+      $('profile-npu-load').textContent = next.npu_load_pct === null ? 'Unavailable' : `${next.npu_load_pct}%`;
+      const npuCalls = next.stages.npu_run.calls - old.stages.npu_run.calls;
+      const npuElapsed = next.stages.npu_run.wall_ms - old.stages.npu_run.wall_ms;
+      $('profile-npu-duration').textContent = npuCalls ? `${(npuElapsed / npuCalls).toFixed(2)} ms` : '—';
+      $('profile-npu-rate').textContent = (npuCalls * 1000 / elapsed).toFixed(1);
+      $('profile-state').textContent = `Last ${(elapsed / 1000).toFixed(2)} s · ${next.replaced_jobs - old.replaced_jobs} queued jobs replaced · CPU % uses one core as 100%`;
+      for (const [key, cells] of profileRows) {
+        const current = next.stages[key];
+        const previous = old.stages[key];
+        const calls = current.calls - previous.calls;
+        const cpu = current.cpu_ms - previous.cpu_ms;
+        const wall = current.wall_ms - previous.wall_ms;
+        const values = calls ? [
+          (calls * 1000 / elapsed).toFixed(1),
+          key === 'neural_queue' ? '—' : (cpu * 1000 / elapsed).toFixed(1),
+          key === 'neural_queue' ? '—' : (cpu / calls).toFixed(3),
+          (Math.max(0, wall - cpu) / calls).toFixed(3),
+          (wall / calls).toFixed(3)
+        ] : ['0', '—', '—', '—', '—'];
+        cells.forEach((cell, index) => cell.textContent = values[index]);
+      }
+    }
+
+    async function refreshProfile() {
+      if (profilePending || performance.now() - profileLastPoll < 950) return;
+      profilePending = true;
+      profileLastPoll = performance.now();
+      try {
+        const response = await checked(await fetch('/api/profile', { cache: 'no-store', signal: AbortSignal.timeout(4000) }));
+        const sample = await response.json();
+        if (activeTab === 'profiling') renderProfile(sample);
+      } catch (error) {
+        previousProfile = null;
+        $('profile-state').textContent = 'Profiling data unavailable. Retrying…';
+      } finally {
+        profilePending = false;
       }
     }
 
     for (const side of liveSides) {
       const img = $(`live-${side}`);
       img.onload = () => {
-        const available = state.capture && state.mode !== 'focus';
+        const available = state.capture && state.mode === 'depth' &&
+          (side !== 'depth' || state.pipeline !== 'zipdepth');
+        img.hidden = !available;
+        $(`empty-${side}`).hidden = available;
+      };
+      img.onerror = () => { img.hidden = true; $(`empty-${side}`).hidden = false; };
+    }
+
+    for (const side of neuralSides) {
+      const img = $(`live-${side}`);
+      img.onload = () => {
+        const available = state.capture && state.mode === 'depth' && Boolean(state.neural?.available);
         img.hidden = !available;
         $(`empty-${side}`).hidden = available;
       };
@@ -442,28 +633,27 @@
       $('focus-feedback').textContent = 'Focus image transfer failed; retrying. Check the connection or stop and restart focus capture.';
     };
 
-    function depthLegend(calibrated, scale) {
-      const metric = calibrated && Number.isFinite(scale) && scale !== 0;
-      // Same quantized palette and parallax mapping as depth.c/rve_sad.c
-      // and init_bmp() in server.c. Offset is already removed from parallax.
-      return [33, 65, 128, 192, 255].map((index, tick) => {
-        const parallax = (index - 1) * 96 / 254;
-        const cm = Math.abs(scale) / parallax / 10;
-        return {
-          color: `rgb(${index}, ${255 - Math.abs(2 * index - 255)}, ${255 - index})`,
-          label: metric
-            ? `${index === 255 ? '≤' : '≈'}${Math.round(cm)} cm`
-            : ['Far', '', '', '', 'Near'][tick]
-        };
-      });
+    function formatDistance(mm) {
+      return mm >= 1000 ? `${(mm / 1000).toFixed(1)} m` : `${Math.round(mm / 10)} cm`;
+    }
+
+    function relativeDepthLegend(samples) {
+      return samples.map(([, color], tick) => ({
+        color, label: tick === 0 ? 'Far' : tick === samples.length - 1 ? 'Near' : ''
+      }));
+    }
+
+    function metricDepthLegend(samples) {
+      return samples.map(([mm, color], tick) => ({
+        color,
+        label: tick === 0 ? `≥${mm / 1000} m`
+          : tick === samples.length - 1 ? `≤${mm / 10} cm` : formatDistance(mm)
+      }));
     }
 
     let depthLegendKey = '';
-    function renderDepthLegend(next) {
-      const key = `${next.calibrated}:${next.scale_px_mm}`;
-      if (key === depthLegendKey) return;
-      depthLegendKey = key;
-      $('depth-key').replaceChildren(...depthLegend(next.calibrated, next.scale_px_mm).map(entry => {
+    function renderLegend(id, entries) {
+      $(id).replaceChildren(...entries.map(entry => {
         const tick = document.createElement('span');
         const swatch = document.createElement('span');
         swatch.className = 'depth-swatch';
@@ -472,27 +662,86 @@
         tick.append(swatch, entry.label);
         return tick;
       }));
-      const metric = next.calibrated && Number.isFinite(next.scale_px_mm) && next.scale_px_mm !== 0;
+    }
+
+    function renderDepthLegend(next) {
+      const samples = next.metric_legend || [];
+      if (!samples.length) return;
+      const metric = next.calibrated;
+      if (!$('zipdepth-metric-key').childElementCount) {
+        renderLegend('zipdepth-metric-key', metricDepthLegend(samples));
+        renderLegend('neural-depth-key', relativeDepthLegend(samples));
+      }
+      if (metric === depthLegendKey) return;
+      depthLegendKey = metric;
+      renderLegend('depth-key', metric ? metricDepthLegend(samples) : relativeDepthLegend(samples));
       $('depth-key-note').textContent = metric
-        ? 'Approximate distances at colour samples (nonlinear scale). Black = unreliable.'
-        : 'Relative depth only; calibrate for distances. Black = unreliable.';
+        ? 'Far stereo depths have limited resolution. Black = unresolved.'
+        : 'Relative depth only. Calibrate stereo to show distances.';
+    }
+
+    function hideCalibratedZipDepth() {
+      $('live-zipdepth-metric').hidden = $('zipdepth-metric-legend').hidden = true;
+      $('empty-zipdepth-metric').hidden = false;
+      calibratedShownFrame = -1;
+    }
+
+    async function updateCalibratedZipDepth() {
+      neuralPreviewPending = true;
+      const image = $('live-zipdepth-metric');
+      try {
+        const response = await checked(await fetch('/api/zipdepth.bmp', {
+          cache: 'no-store', signal: AbortSignal.timeout(4000)
+        }));
+        const url = URL.createObjectURL(await response.blob());
+        try {
+          image.src = url;
+          await image.decode();
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+        if (!state.capture || state.mode !== 'depth' || !state.neural?.metric)
+          return;
+        image.hidden = $('zipdepth-metric-legend').hidden = false;
+        $('empty-zipdepth-metric').hidden = true;
+      } catch (_) {
+        hideCalibratedZipDepth();
+      } finally {
+        neuralPreviewPending = false;
+      }
     }
 
     function renderStatus(next) {
       state = next;
       $('status').textContent = next.capture ? '● Capturing' : '○ Capture stopped';
       const focusing = next.mode === 'focus';
-      const depthRunning = next.capture && !focusing;
+      const calibrating = next.mode === 'calibration';
+      const depthRunning = next.capture && next.mode === 'depth';
       const focusRunning = next.capture && focusing;
+      const calibrationRunning = next.capture && calibrating;
+      if (!pipelineDirty) $('pipeline').value = next.pipeline || 'stereo';
       $('capture').textContent = depthRunning ? 'Stop depth capture' : 'Start depth capture';
       $('capture').setAttribute('aria-pressed', String(Boolean(depthRunning)));
       $('capture-mode').textContent = focusing
         ? `Focus mode · ${next.focus_camera} · 1280 × 800 · depth paused`
-        : 'Depth mode · 160 × 100';
+        : calibrating ? 'Native stereo calibration · 1280 × 800 · depth paused'
+        : `${next.fisheye_calibrated ? 'Rectified' : 'Unrectified'} depth · 160 × 100`;
+      $('fisheye-capture').textContent = calibrationRunning ? 'Stop native calibration capture' : 'Start native calibration capture';
+      $('fisheye-pair').hidden = !calibrationRunning || !next.frame;
+      $('fisheye-state').textContent = next.fisheye_calibrated
+        ? `Calibrated · baseline ${next.baseline_mm.toFixed(2)} mm · ${next.fisheye_rms >= 0 ? `reprojection RMS ${next.fisheye_rms.toFixed(3)} px` : 'RMS not imported; check the calibration report'}`
+        : 'Fisheye calibration required for rectified metric stereo.';
+      $('neural-state').textContent = next.neural?.error ||
+        (depthRunning && next.neural?.available
+          ? `Frame ${next.neural.frame} · ${next.neural.inference_ms.toFixed(1)} ms for one left-view prediction · relative inverse depth`
+          : 'Start capture with ZipDepth or Stereo + ZipDepth.');
+      $('neural-view').textContent = next.neural?.projection === 'calibrated'
+        ? 'The left perspective input uses your measured fisheye calibration.'
+        : '110° forward view · estimated Arducam M32076M20 lens correction · relative depth only. The full 220° view remains in Live images.';
       $('focus-capture').textContent = focusRunning ? 'Stop focus capture' : 'Start focus capture';
       $('focus-capture').setAttribute('aria-pressed', String(Boolean(focusRunning)));
       $('focus-download').hidden = !focusRunning || !next.frame;
-      for (const slot of ['near', 'far']) $(`snap-${slot}`).disabled = !depthRunning;
+      for (const slot of ['near', 'far']) $(`snap-${slot}`).disabled = !depthRunning || next.fisheye_calibrated;
       if (focusRunning && !$('focus-camera').disabled) $('focus-camera').value = next.focus_camera;
       if (!focusRunning) {
         focusShownFrame = -1;
@@ -506,7 +755,10 @@
       $('frames').textContent = Number.isFinite(next.frame) ? next.frame : '—';
       $('pair-delta').textContent = Number.isFinite(next.pair_delta_ms) && next.pair_delta_ms >= 0
         ? `${next.pair_delta_ms.toFixed(1)} ms` : '—';
-      renderDiagnostics(next.diagnostics);
+      if (activeTab === 'profiling') {
+        renderDiagnostics(next.diagnostics);
+        refreshProfile();
+      }
       if (!settingsDirty || next.auto_exposure) {
         $('exposure').value = next.exposure;
         $('gain').value = next.gain;
@@ -516,7 +768,9 @@
       }
       updateExposureInputs();
       renderDepthLegend(next);
-      $('calibration-state').textContent = next.calibrated
+      $('calibration-state').textContent = next.fisheye_calibrated
+        ? `Fisheye stereo calibrated · baseline ${next.baseline_mm.toFixed(2)} mm · rectified shared view`
+        : next.calibrated
         ? `Calibrated · disparity offset ${next.offset_px.toFixed(1)} px · scale ${next.scale_px_mm.toFixed(1)} px·mm · vertical offset ${next.vertical_px.toFixed(1)} px`
         : 'Not calibrated: depth is relative until you complete the steps below.';
       $('accel').textContent = next.accel
@@ -529,13 +783,49 @@
           $(`empty-${side}`).hidden = false;
         }
       }
+      if (!depthRunning || !next.neural?.metric)
+        hideCalibratedZipDepth();
+      else
+        $('zipdepth-metric-state').textContent = next.neural.metric_frame === next.neural.metric_reference_frame
+          ? `Frame ${next.neural.metric_frame} · estimated distance · black = invalid`
+          : `Frame ${next.neural.metric_frame} · using stereo scale from frame ${next.neural.metric_reference_frame}`;
+      $('empty-zipdepth-metric').textContent = next.pipeline === 'both'
+        ? 'Waiting for consistent stereo measurements at different distances'
+        : 'Select Stereo + ZipDepth to calibrate the prediction';
+      if (!depthRunning || !next.neural?.available) {
+        neuralShownFrame = -1;
+        for (const side of neuralSides) {
+          $(`live-${side}`).hidden = true;
+          $(`empty-${side}`).hidden = false;
+        }
+      }
+      if (next.pipeline === 'zipdepth') {
+        $('live-depth').hidden = true;
+        $('empty-depth').hidden = false;
+        $('empty-depth').textContent = 'Stereo depth is off in ZipDepth mode';
+      } else {
+        $('empty-depth').textContent = 'Start capture to view depth';
+      }
       if (activeTab === 'view' && depthRunning && next.frame > 0 && next.frame !== shownFrame &&
           liveSides.every(side => $(`live-${side}`).complete)) {
         shownFrame = next.frame;
         const cacheKey = `${Date.now()}-${next.frame}`;
         for (const side of liveSides) {
+          if (side === 'depth' && next.pipeline === 'zipdepth') continue;
           setImage(`live-${side}`, `/api/${side}.bmp?t=${cacheKey}`);
         }
+      }
+      if (activeTab === 'view' && depthRunning && next.neural?.available &&
+          next.neural.frame !== neuralShownFrame &&
+          neuralSides.every(side => $(`live-${side}`).complete)) {
+        neuralShownFrame = next.neural.frame;
+        for (const side of neuralSides)
+          setImage(`live-${side}`, `/api/${side}.bmp?t=${Date.now()}-${next.neural.frame}`);
+      }
+      if (activeTab === 'view' && depthRunning && next.neural?.metric &&
+          next.neural.metric_frame !== calibratedShownFrame && !neuralPreviewPending) {
+        calibratedShownFrame = next.neural.metric_frame;
+        updateCalibratedZipDepth();
       }
       if (activeTab === 'focus' && focusRunning && next.frame > 0 &&
           next.frame !== focusShownFrame && $('focus-image').complete &&
@@ -568,14 +858,36 @@
         $('status').textContent = 'Disconnected';
         if (!actionError) showError(error.message);
       } finally {
-        const interval = state.mode === 'focus' ? 500 : pollIntervalMs;
+        const interval = state.mode === 'focus' || state.mode === 'calibration' ? 500 : pollIntervalMs;
         setTimeout(poll, Math.max(0, interval - (performance.now() - started)));
       }
     }
 
     $('capture').addEventListener('click', event => action(event.currentTarget, async () => {
-      await post('/api/capture', { enabled: state.capture && state.mode !== 'focus' ? '0' : '1', mode: 'depth' });
+      await post('/api/capture', { enabled: state.capture && state.mode === 'depth' ? '0' : '1', mode: 'depth', pipeline: $('pipeline').value });
+      pipelineDirty = false;
     }));
+
+    $('pipeline').addEventListener('change', event => {
+      pipelineDirty = true;
+      if (state.capture && state.mode === 'depth') action(event.currentTarget, async () => {
+        await post('/api/capture', { enabled: '1', mode: 'depth', pipeline: $('pipeline').value });
+        pipelineDirty = false;
+      });
+    });
+    $('fisheye-capture').addEventListener('click', event => action(event.currentTarget, async () => {
+      await post('/api/capture', { enabled: state.capture && state.mode === 'calibration' ? '0' : '1', mode: 'calibration' });
+    }));
+    $('fisheye-upload').addEventListener('click', event => action(event.currentTarget, async () => {
+      const file = $('fisheye-file').files[0];
+      if (!file) throw new Error('Select the calibration .txt file produced by the fisheye tool.');
+      if (file.size > 2048) throw new Error('Calibration file exceeds 2048 bytes.');
+      await checked(await fetch('/api/fisheye', {
+        method: 'POST', signal: AbortSignal.timeout(15000),
+        headers: { 'Content-Type': 'text/plain', 'X-4reel-control': '1' }, body: await file.text()
+      }));
+      $('fisheye-feedback').textContent = 'Fisheye calibration saved. Start depth capture to use the rectified camera pair.';
+    }, message => { $('fisheye-feedback').textContent = message; }));
 
     async function startFocus() {
       focusImageError = false;

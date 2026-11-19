@@ -6,7 +6,7 @@ Buildroot-based Linux image for the 4reel boards (RV1103 and RV1106).
 git submodule update --init
 cd buildroot
 make BR2_EXTERNAL=$PWD/../ rv1103g_defconfig
-make
+make -j16
 ```
 
 The SD-card image is written to `os/buildroot/output/images/sdcard.img`.

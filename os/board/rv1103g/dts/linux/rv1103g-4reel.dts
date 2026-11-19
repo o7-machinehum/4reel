@@ -292,6 +292,11 @@
 	status = "okay";
 };
 
+&npu {
+	interrupt-names = "npu_irq";
+	status = "okay";
+};
+
 &sfc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&fspi_pins &fspi_cs0>;

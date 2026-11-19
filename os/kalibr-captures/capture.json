@@ -1,0 +1,252 @@
+{
+  "format": "4reel-kalibr-static-v1",
+  "resolution": [
+    1280,
+    800
+  ],
+  "cam0": "left",
+  "cam1": "right",
+  "pairs": [
+    {
+      "image": "0000001702995443000.png",
+      "frame": 16,
+      "timestamp_us": 1702995443,
+      "pair_delta_ms": 2.732
+    },
+    {
+      "image": "0000001707155288000.png",
+      "frame": 24,
+      "timestamp_us": 1707155288,
+      "pair_delta_ms": 2.74
+    },
+    {
+      "image": "0000001713478252000.png",
+      "frame": 39,
+      "timestamp_us": 1713478252,
+      "pair_delta_ms": 2.75
+    },
+    {
+      "image": "0000001717238758000.png",
+      "frame": 45,
+      "timestamp_us": 1717238758,
+      "pair_delta_ms": 2.75
+    },
+    {
+      "image": "0000001722530073000.png",
+      "frame": 57,
+      "timestamp_us": 1722530073,
+      "pair_delta_ms": 2.767
+    },
+    {
+      "image": "0000001725824670000.png",
+      "frame": 62,
+      "timestamp_us": 1725824670,
+      "pair_delta_ms": 2.769
+    },
+    {
+      "image": "0000001732180914000.png",
+      "frame": 77,
+      "timestamp_us": 1732180914,
+      "pair_delta_ms": 2.784
+    },
+    {
+      "image": "0000001738836668000.png",
+      "frame": 93,
+      "timestamp_us": 1738836668,
+      "pair_delta_ms": 2.785
+    },
+    {
+      "image": "0000001742464053000.png",
+      "frame": 99,
+      "timestamp_us": 1742464053,
+      "pair_delta_ms": 2.793
+    },
+    {
+      "image": "0000001745925038000.png",
+      "frame": 104,
+      "timestamp_us": 1745925038,
+      "pair_delta_ms": 2.806
+    },
+    {
+      "image": "0000001751881935000.png",
+      "frame": 118,
+      "timestamp_us": 1751881935,
+      "pair_delta_ms": 2.817
+    },
+    {
+      "image": "0000001755309648000.png",
+      "frame": 123,
+      "timestamp_us": 1755309648,
+      "pair_delta_ms": 2.824
+    },
+    {
+      "image": "0000001759136704000.png",
+      "frame": 130,
+      "timestamp_us": 1759136704,
+      "pair_delta_ms": 2.832
+    },
+    {
+      "image": "0000001764161803000.png",
+      "frame": 141,
+      "timestamp_us": 1764161803,
+      "pair_delta_ms": 2.831
+    },
+    {
+      "image": "0000001767988857000.png",
+      "frame": 148,
+      "timestamp_us": 1767988857,
+      "pair_delta_ms": 2.844
+    },
+    {
+      "image": "0000001772681159000.png",
+      "frame": 158,
+      "timestamp_us": 1772681159,
+      "pair_delta_ms": 2.858
+    },
+    {
+      "image": "0000001776474934000.png",
+      "frame": 165,
+      "timestamp_us": 1776474934,
+      "pair_delta_ms": 2.865
+    },
+    {
+      "image": "0000001779836089000.png",
+      "frame": 170,
+      "timestamp_us": 1779836089,
+      "pair_delta_ms": 2.871
+    },
+    {
+      "image": "0000001783796261000.png",
+      "frame": 177,
+      "timestamp_us": 1783796261,
+      "pair_delta_ms": 2.878
+    },
+    {
+      "image": "0000001787290532000.png",
+      "frame": 183,
+      "timestamp_us": 1787290532,
+      "pair_delta_ms": 2.886
+    },
+    {
+      "image": "0000001791383822000.png",
+      "frame": 191,
+      "timestamp_us": 1791383822,
+      "pair_delta_ms": 2.883
+    },
+    {
+      "image": "0000001795510385000.png",
+      "frame": 199,
+      "timestamp_us": 1795510385,
+      "pair_delta_ms": 2.902
+    },
+    {
+      "image": "0000001799603670000.png",
+      "frame": 207,
+      "timestamp_us": 1799603670,
+      "pair_delta_ms": 2.909
+    },
+    {
+      "image": "0000001804096302000.png",
+      "frame": 216,
+      "timestamp_us": 1804096302,
+      "pair_delta_ms": 2.919
+    },
+    {
+      "image": "0000001807956639000.png",
+      "frame": 223,
+      "timestamp_us": 1807956639,
+      "pair_delta_ms": 2.926
+    },
+    {
+      "image": "0000001811617306000.png",
+      "frame": 229,
+      "timestamp_us": 1811617306,
+      "pair_delta_ms": 2.924
+    },
+    {
+      "image": "0000001816742233000.png",
+      "frame": 240,
+      "timestamp_us": 1816742233,
+      "pair_delta_ms": 2.935
+    },
+    {
+      "image": "0000001821367974000.png",
+      "frame": 249,
+      "timestamp_us": 1821367974,
+      "pair_delta_ms": 2.956
+    },
+    {
+      "image": "0000001825794049000.png",
+      "frame": 258,
+      "timestamp_us": 1825794049,
+      "pair_delta_ms": 2.961
+    },
+    {
+      "image": "0000001828988810000.png",
+      "frame": 263,
+      "timestamp_us": 1828988810,
+      "pair_delta_ms": 2.972
+    },
+    {
+      "image": "0000001832616199000.png",
+      "frame": 269,
+      "timestamp_us": 1832616199,
+      "pair_delta_ms": 2.968
+    },
+    {
+      "image": "0000001836010629000.png",
+      "frame": 274,
+      "timestamp_us": 1836010629,
+      "pair_delta_ms": 2.994
+    },
+    {
+      "image": "0000001839471616000.png",
+      "frame": 279,
+      "timestamp_us": 1839471616,
+      "pair_delta_ms": 2.991
+    },
+    {
+      "image": "0000001843365233000.png",
+      "frame": 286,
+      "timestamp_us": 1843365233,
+      "pair_delta_ms": 2.991
+    },
+    {
+      "image": "0000001847225565000.png",
+      "frame": 293,
+      "timestamp_us": 1847225565,
+      "pair_delta_ms": 3.006
+    },
+    {
+      "image": "0000001850852954000.png",
+      "frame": 299,
+      "timestamp_us": 1850852954,
+      "pair_delta_ms": 3.004
+    },
+    {
+      "image": "0000001854546895000.png",
+      "frame": 305,
+      "timestamp_us": 1854546895,
+      "pair_delta_ms": 3.012
+    },
+    {
+      "image": "0000001857774928000.png",
+      "frame": 310,
+      "timestamp_us": 1857774928,
+      "pair_delta_ms": 3.026
+    },
+    {
+      "image": "0000001862400676000.png",
+      "frame": 319,
+      "timestamp_us": 1862400676,
+      "pair_delta_ms": 3.038
+    },
+    {
+      "image": "0000001865495598000.png",
+      "frame": 323,
+      "timestamp_us": 1865495598,
+      "pair_delta_ms": 3.041
+    }
+  ],
+  "timestamps": "common pair midpoint; stationary poses only, not IMU timing calibration"
+}

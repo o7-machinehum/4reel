@@ -1,2 +1,3 @@
 source "$BR2_EXTERNAL_FOURREEL_PATH/package/rockchip-rve/Config.in"
+source "$BR2_EXTERNAL_FOURREEL_PATH/package/rockchip-rknn/Config.in"
 source "$BR2_EXTERNAL_FOURREEL_PATH/package/fourreel-web/Config.in"

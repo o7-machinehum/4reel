@@ -15,12 +15,12 @@
 
 #define PIXELS (DEPTH_W * DEPTH_H)
 #define CENSUS_RADIUS 2
-#define SEARCH_NEAR_MM 75.0
-#define SEARCH_FAR_MM 5000.0
 #define SEARCH_MARGIN_PX 2
 
 /* One 24-bit descriptor per right-image pixel. No cost volume is allocated. */
 static uint32_t right_census[PIXELS];
+static struct StereoValidity mask_integral;
+static uint8_t right_usable[PIXELS];
 
 static double magnitude(double value)
 {
@@ -123,7 +123,7 @@ static inline void consider_match(int disparity, int cost, int *best,
 
 static void find_best_match(uint32_t descriptor, int right_y, int x,
 			    int min_d, int max_d, int *best, int *second,
-			    int *best_disparity)
+			    int *best_disparity, const uint8_t *usable)
 {
 	const uint32_t *row = &right_census[right_y * DEPTH_W];
 	int first = min_d;
@@ -152,18 +152,24 @@ static void find_best_match(uint32_t descriptor, int right_y, int x,
 			uint32x4_t costs = vpaddlq_u16(pairs);
 
 			/* The load runs left-to-right, opposite to increasing d. */
-			consider_match(d, vgetq_lane_u32(costs, 3), best,
+			if (!usable || usable[right_y * DEPTH_W + right_x])
+				consider_match(d, vgetq_lane_u32(costs, 3), best,
 				       second, best_disparity);
-			consider_match(d + 1, vgetq_lane_u32(costs, 2), best,
+			if (!usable || usable[right_y * DEPTH_W + right_x - 1])
+				consider_match(d + 1, vgetq_lane_u32(costs, 2), best,
 				       second, best_disparity);
-			consider_match(d + 2, vgetq_lane_u32(costs, 1), best,
+			if (!usable || usable[right_y * DEPTH_W + right_x - 2])
+				consider_match(d + 2, vgetq_lane_u32(costs, 1), best,
 				       second, best_disparity);
-			consider_match(d + 3, vgetq_lane_u32(costs, 0), best,
+			if (!usable || usable[right_y * DEPTH_W + right_x - 3])
+				consider_match(d + 3, vgetq_lane_u32(costs, 0), best,
 				       second, best_disparity);
 		}
 	}
 #endif
 	for (; d <= last; ++d) {
+		if (usable && !usable[right_y * DEPTH_W + x - d])
+			continue;
 		int cost = __builtin_popcount(descriptor ^ row[x - d]);
 
 		consider_match(d, cost, best, second, best_disparity);
@@ -174,14 +180,39 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 		   const struct Calibration *cal, uint8_t *visual,
 		   uint16_t *depth_mm)
 {
+	depth_compute_masked(left, right, cal, NULL, NULL, visual, depth_mm);
+}
+
+void depth_compute_masked(const uint8_t *left, const uint8_t *right,
+			 const struct Calibration *cal,
+			 const uint8_t *left_valid, const uint8_t *right_valid,
+			 uint8_t *visual, uint16_t *depth_mm)
+{
 	int x, y, min_d = 0, max_d = 32, vertical = 0;
 	int calibrated = cal && cal->valid;
 	double offset = 0;
+	const struct StereoValidity *validity = NULL;
 
 	if (!left || !right || !visual || !depth_mm)
 		return;
 	memset(visual, 0, PIXELS);
 	memset(depth_mm, 0, PIXELS * sizeof(*depth_mm));
+	if (left_valid || right_valid) {
+		memset(&mask_integral, 0, sizeof(mask_integral));
+		for (int side = 0; side < 2; ++side) {
+			const uint8_t *mask = side ? right_valid : left_valid;
+			if (!mask)
+				continue;
+			uint16_t *sum = mask_integral.invalid[side];
+			for (int row = 0; row < DEPTH_H; ++row)
+				for (int column = 0; column < DEPTH_W; ++column) {
+					int p = (row + 1) * (DEPTH_W + 1) + column + 1;
+					sum[p] = !mask[row * DEPTH_W + column] + sum[p - 1] +
+						sum[p - DEPTH_W - 1] - sum[p - DEPTH_W - 2];
+				}
+		}
+		validity = &mask_integral;
+	}
 	if (calibrated) {
 		double lower;
 		double upper;
@@ -190,8 +221,8 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 		vertical = (int)(cal->vertical_px +
 				 (cal->vertical_px >= 0 ? 0.5 : -0.5));
 		/* Camera order determines the sign of scale, not physical distance. */
-		double near_d = offset + cal->scale_px_mm / SEARCH_NEAR_MM;
-		double far_d = offset + cal->scale_px_mm / SEARCH_FAR_MM;
+		double near_d = offset + cal->scale_px_mm / STEREO_SEARCH_NEAR_MM;
+		double far_d = offset + cal->scale_px_mm / STEREO_SEARCH_FAR_MM;
 		lower = floor(fmin(near_d, far_d)) - SEARCH_MARGIN_PX;
 		upper = ceil(fmax(near_d, far_d)) + SEARCH_MARGIN_PX;
 		if (!isfinite(lower) || !isfinite(upper))
@@ -213,12 +244,15 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 	}
 
 #ifdef FOURREEL_RVE
-	if (rve_depth_compute(left, right, min_d, max_d, vertical, cal, visual, depth_mm) == 0)
+	if (rve_depth_compute(left, right, min_d, max_d, vertical, cal, validity, visual, depth_mm) == 0)
 		return;
 #endif
 	for (y = CENSUS_RADIUS; y < DEPTH_H - CENSUS_RADIUS; ++y)
-		for (x = CENSUS_RADIUS; x < DEPTH_W - CENSUS_RADIUS; ++x)
+		for (x = CENSUS_RADIUS; x < DEPTH_W - CENSUS_RADIUS; ++x) {
 			right_census[y * DEPTH_W + x] = census(right, x, y, NULL);
+			right_usable[y * DEPTH_W + x] = stereo_window_valid(validity, 1,
+				x - CENSUS_RADIUS, y - CENSUS_RADIUS, CENSUS_RADIUS * 2 + 1);
+		}
 
 	for (y = CENSUS_RADIUS; y < DEPTH_H - CENSUS_RADIUS; ++y) {
 		int right_y = y + vertical;
@@ -229,14 +263,17 @@ void depth_compute(const uint8_t *left, const uint8_t *right,
 			int contrast, best = 25, second = 25, best_d = 0;
 			double parallax, distance;
 			int index = y * DEPTH_W + x;
+			if (!stereo_window_valid(validity, 0, x - CENSUS_RADIUS,
+						 y - CENSUS_RADIUS, CENSUS_RADIUS * 2 + 1))
+				continue;
 
 			descriptor = census(left, x, y, &contrast);
 			if (contrast < 8 || __builtin_popcount(descriptor) < 3 ||
 			    __builtin_popcount(descriptor) > 21)
 				continue;
 			find_best_match(descriptor, right_y, x, min_d, max_d,
-					&best, &second, &best_d);
-			if (best > 8 || second - best < 3)
+					&best, &second, &best_d, validity ? right_usable : NULL);
+			if (best > 8 || second - best < 3 || (validity && second == 25))
 				continue;
 
 			parallax = calibrated ? best_d - offset : best_d;

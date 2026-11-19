@@ -52,14 +52,17 @@ static void send_response(int fd, const HttpResponse *response)
     char header[512];
     const char *type = response->content_type ? response->content_type : "text/plain";
     size_t body_len = response->body ? response->body_len : 0;
+    const char *scale = response->zipdepth_scale;
     int length = snprintf(header, sizeof(header),
                           "HTTP/1.1 %d %s\r\n"
                           "Content-Type: %s\r\n"
                           "Content-Length: %zu\r\n"
                           "Cache-Control: no-store\r\n"
-                          "Connection: close\r\n\r\n",
+                          "Connection: close\r\n"
+                          "%s%s%s\r\n",
                           response->status, reason_phrase(response->status), type,
-                          body_len);
+                          body_len, *scale ? "X-4reel-zipdepth-scale: " : "",
+                          scale, *scale ? "\r\n" : "");
     if (length < 0 || (size_t)length >= sizeof(header))
         return;
     if (send_all(fd, header, (size_t)length) == 0 && body_len)

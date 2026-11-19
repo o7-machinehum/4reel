@@ -16,6 +16,7 @@ typedef struct HttpResponse {
     const char *content_type;
     const void *body;
     size_t body_len;
+    char zipdepth_scale[128];
 } HttpResponse;
 
 /* The caller chooses the address to expose; this function has no default bind. */

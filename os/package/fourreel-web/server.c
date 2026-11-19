@@ -21,6 +21,9 @@
 #include "depth.h"
 #include "rve_sad.h"
 #include "http.h"
+#include "fisheye.h"
+#include "neural.h"
+#include "image.h"
 
 #define RAW_W 1280
 #define RAW_H 800
@@ -29,13 +32,16 @@
 #define BMP_BYTES (14 + 40 + 1024 + PIXELS)
 #define FOCUS_BMP_BYTES (14 + 40 + 1024 + RAW_W * RAW_H)
 #define FOCUS_INTERVAL_MS 250
+#define CAL_PAIR_HEADER_BYTES 40
 #define PROCESS_INTERVAL_MS 33
 /* Fixed physical labels: the former "Swap cameras" enabled mapping. */
 #define LEFT_CAMERA 1
 #define RIGHT_CAMERA 0
 #define CALIBRATION_FILE "/etc/4reel-web.calibration"
 #define INDEX_FILE "/usr/share/4reel-web/index.html"
-#define SENSOR_BLACK_LEVEL 16
+#define FISHEYE_FILE "/etc/4reel-web.fisheye"
+#define NEURAL_INTERVAL_MS 100
+#define AE_NEURAL_INTERVAL_MS 500
 #define AE_TARGET 128
 #define AE_LOW 110
 #define AE_HIGH 145
@@ -57,10 +63,13 @@ struct Camera {
     int scaled;
     struct CameraBuffer buffers[MAX_BUFFERS];
     uint8_t image[PIXELS];
+    uint8_t neural_image[NEURAL_PIXELS];
+    int neural_ready;
     int fresh;
     int64_t timestamp_us;
     double unpack_ms;
     int64_t last_frame_ms;
+    struct ProfileRange profile_range;
 };
 
 struct TimingMetric {
@@ -94,6 +103,15 @@ enum HttpRequestKind {
     HTTP_REQUEST_IMAGE,
 };
 
+enum ProfileStage {
+    PROFILE_DEQUEUE_LEFT, PROFILE_DEQUEUE_RIGHT,
+    PROFILE_REQUEUE_LEFT, PROFILE_REQUEUE_RIGHT,
+    PROFILE_UNPACK_LEFT, PROFILE_UNPACK_RIGHT,
+    PROFILE_REMAP, PROFILE_MATCH, PROFILE_AE, PROFILE_SENSOR, PROFILE_QUEUE,
+    PROFILE_HTTP_IMAGE, PROFILE_HTTP_STATUS, PROFILE_HTTP_OTHER,
+    PROFILE_STAGE_COUNT
+};
+
 struct Server {
     struct Camera cameras[2];
     uint8_t latest[2][PIXELS];
@@ -101,6 +119,7 @@ struct Server {
     int snapshot_valid[2];
     uint8_t depth_visual[PIXELS];
     uint16_t depth_mm[PIXELS];
+    uint8_t match_valid[2][PIXELS];
     struct Calibration calibration;
     uint64_t frame;
     int64_t last_pair_ms;
@@ -109,23 +128,38 @@ struct Server {
     int focus_mode;
     int focus_side;
     uint8_t *focus_bmp;
+    int calibration_mode;
+    uint8_t *calibration_pending;
+    uint8_t *calibration_pair;
+    struct FisheyeCalibration fisheye;
+    struct FisheyeMaps *fisheye_maps;
+    uint16_t (*neural_maps)[NEURAL_PIXELS][2];
+    struct NeuralResult neural;
+    int depth_engine; /* 0: stereo, 1: ZipDepth, 2: both. */
+    int64_t capture_timestamp_us;
+    int64_t neural_last_ms;
     int exposure;
     int gain;
     int auto_exposure;
     int ae_level[2];
     double ae_clipped_percent;
     uint64_t ae_last_frame;
+    uint64_t ae_neural_frame;
+    int64_t ae_neural_last_ms;
     char error[128];
     char accel_path[128];
     struct Diagnostics diagnostics;
+    struct ProfileMetric profile[PROFILE_STAGE_COUNT];
+    struct ProfileCycle profile_cycle;
     enum HttpRequestKind http_request_kind;
 };
 
 static struct Server server;
 static uint8_t bmp[BMP_BYTES];
 static uint8_t depth_pgm[32 + PIXELS * 2];
-static char json[3072];
-static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_palette);
+static char json[4096];
+enum BmpPalette { BMP_LUMA, BMP_DEPTH_COLOURS, BMP_STEREO_DEPTH };
+static void init_bmp(uint8_t *out, unsigned width, unsigned height, enum BmpPalette palette);
 static volatile sig_atomic_t stopping;
 static struct {
     pthread_mutex_t lock;
@@ -210,6 +244,7 @@ static void camera_close(struct Camera *camera)
     camera->streaming = 0;
     camera->buffer_count = 0;
     camera->fresh = 0;
+    camera->neural_ready = 0;
     camera->unpack_ms = 0;
 }
 
@@ -406,25 +441,27 @@ static int find_camera_nodes(char paths[2][32], int full_resolution)
     return 0;
 }
 
-static int set_sensor_control(const char *path, unsigned id, int value)
+static int set_sensor_control(struct Server *state, const char *path, unsigned id, int value)
 {
     int fd = open(path, O_RDWR);
     if (fd < 0)
         return -1;
     struct v4l2_control control = {.id = id, .value = value};
+    struct ProfileStamp start = profile_start();
     int result = xioctl(fd, VIDIOC_S_CTRL, &control);
     int saved_errno = errno;
+    profile_end_traced(&state->profile[PROFILE_SENSOR], start, TIMELINE_CAMERA_IO);
     close(fd);
     errno = saved_errno;
     return result;
 }
 
-static int apply_sensor_settings(int exposure, int gain)
+static int apply_sensor_settings(struct Server *state, int exposure, int gain)
 {
     const char *paths[2] = {"/dev/v4l-subdev2", "/dev/v4l-subdev5"};
     for (int i = 0; i < 2; ++i) {
-        if (set_sensor_control(paths[i], V4L2_CID_EXPOSURE, exposure) < 0 ||
-            set_sensor_control(paths[i], V4L2_CID_ANALOGUE_GAIN, gain) < 0)
+        if (set_sensor_control(state, paths[i], V4L2_CID_EXPOSURE, exposure) < 0 ||
+            set_sensor_control(state, paths[i], V4L2_CID_ANALOGUE_GAIN, gain) < 0)
             return -1;
     }
     return 0;
@@ -432,19 +469,69 @@ static int apply_sensor_settings(int exposure, int gain)
 
 static void capture_stop(struct Server *state)
 {
+    neural_stop();
+    memset(&state->neural, 0, sizeof(state->neural));
+    state->neural_last_ms = 0;
+    state->capture_timestamp_us = 0;
+    memset(state->depth_visual, 0, sizeof(state->depth_visual));
+    memset(state->depth_mm, 0, sizeof(state->depth_mm));
     camera_close(&state->cameras[0]);
     camera_close(&state->cameras[1]);
     free(state->focus_bmp);
     state->focus_bmp = NULL;
+    free(state->calibration_pending);
+    free(state->calibration_pair);
+    state->calibration_pending = state->calibration_pair = NULL;
+    free(state->neural_maps);
+    state->neural_maps = NULL;
     state->capture = 0;
     state->frame = 0;
+    state->profile_cycle = (struct ProfileCycle){0};
     state->last_pair_ms = 0;
     state->ae_last_frame = 0;
+    state->ae_neural_frame = 0;
+    state->ae_neural_last_ms = 0;
     state->diagnostics.raw_fps[0] = state->diagnostics.raw_fps[1] = 0;
     state->diagnostics.output_fps = 0;
     state->diagnostics.last_raw_timestamp_us[0] = 0;
     state->diagnostics.last_raw_timestamp_us[1] = 0;
     state->diagnostics.last_output_us = 0;
+}
+
+static void update_neural_snapshot(struct Server *state)
+{
+    uint64_t previous_frame = state->neural.frame;
+    neural_snapshot(&state->neural);
+    if (state->fisheye.valid && state->neural.available &&
+        state->neural.frame != previous_frame)
+        for (int i = 0; i < PIXELS; ++i)
+            if (state->fisheye_maps->xy[0][i][0] == FISHEYE_INVALID) {
+                state->neural.visual[i] = 0;
+                state->neural.inverse_depth[i] = 0;
+            }
+}
+
+static int prepare_neural_maps(struct Server *state)
+{
+    struct FisheyeCalibration projection = state->fisheye;
+    if (!projection.valid) {
+        /* Approximate Arducam M32076M20: 0.76 mm EFL, OV9281 3 um pixels.
+         * This is a neural-only lens estimate, never a metric calibration.
+         * Use a 110-degree forward perspective view of the 220-degree lens. */
+        projection.fx = projection.fy = DEPTH_W / (2 * tan(55 * 3.141592653589793 / 180));
+        projection.cx = (DEPTH_W - 1) / 2.0;
+        projection.cy = (DEPTH_H - 1) / 2.0;
+        for (int side = 0; side < 2; ++side)
+            projection.camera[side] = (struct FisheyeCamera){
+                .fx = 0.76 / 0.003, .fy = 0.76 / 0.003,
+                .cx = RAW_W / 2.0, .cy = RAW_H / 2.0,
+                .rotation = {1,0,0,0,1,0,0,0,1}};
+    }
+    state->neural_maps = malloc(sizeof(*state->neural_maps));
+    if (!state->neural_maps)
+        return -1;
+    fisheye_build_map(&projection, 0, NEURAL_W, NEURAL_H, *state->neural_maps);
+    return 0;
 }
 
 static int capture_start(struct Server *state)
@@ -453,8 +540,9 @@ static int capture_start(struct Server *state)
 
     if (state->capture)
         return 0;
-    if (find_camera_nodes(paths, state->focus_mode) < 0 ||
-        apply_sensor_settings(state->exposure, state->gain) < 0)
+    if (find_camera_nodes(paths, state->focus_mode || state->calibration_mode ||
+                           state->fisheye.valid || state->depth_engine) < 0 ||
+        apply_sensor_settings(state, state->exposure, state->gain) < 0)
         goto fail;
     if (state->focus_mode) {
         int index = state->focus_side ? RIGHT_CAMERA : LEFT_CAMERA;
@@ -462,13 +550,35 @@ static int capture_start(struct Server *state)
         state->focus_bmp = malloc(FOCUS_BMP_BYTES);
         if (!state->focus_bmp)
             goto fail;
-        init_bmp(state->focus_bmp, RAW_W, RAW_H, 0);
+        init_bmp(state->focus_bmp, RAW_W, RAW_H, BMP_LUMA);
         if (camera_open(&state->cameras[index], paths[index], 0) < 0)
             goto fail;
-    } else if (camera_open(&state->cameras[0], paths[0], 1) < 0 ||
+    } else if (camera_open(&state->cameras[0], paths[0],
+                           !state->calibration_mode && !state->fisheye.valid && !state->depth_engine) < 0 ||
                camera_open(&state->cameras[1], paths[1], 0) < 0) {
         goto fail;
     }
+    if (state->calibration_mode) {
+        rve_sad_close();
+        state->calibration_pending = malloc(2 * FOCUS_BMP_BYTES);
+        state->calibration_pair = malloc(CAL_PAIR_HEADER_BYTES + 2 * FOCUS_BMP_BYTES);
+        if (!state->calibration_pending || !state->calibration_pair)
+            goto fail;
+        for (int side = 0; side < 2; ++side)
+            init_bmp(state->calibration_pending + side * FOCUS_BMP_BYTES, RAW_W, RAW_H, BMP_LUMA);
+    } else if (!state->focus_mode && state->depth_engine) {
+        if (prepare_neural_maps(state))
+            goto fail;
+        int result = neural_start(NEURAL_MODEL);
+        update_neural_snapshot(state);
+        if (result && state->depth_engine == 1) {
+            snprintf(state->error, sizeof(state->error), "%s", state->neural.error);
+            capture_stop(state);
+            return -1;
+        }
+    }
+    if (!state->focus_mode && !state->calibration_mode)
+        fisheye_build_validity(&state->fisheye, state->fisheye_maps, state->match_valid);
     state->cameras[0].fresh = state->cameras[1].fresh = 0;
     state->cameras[0].last_frame_ms = state->cameras[1].last_frame_ms = monotonic_ms();
     diagnostics_reset(state);
@@ -540,31 +650,44 @@ static void exposure_gain_for_product(double product, int *exposure, int *gain)
         *gain = 248;
 }
 
-static void auto_exposure_update(struct Server *state)
+static void auto_exposure_update(struct Server *state, int64_t now_ms)
 {
+    int neural_meter = !state->focus_mode && !state->calibration_mode &&
+        state->depth_engine && state->neural.available;
     double clipped[2];
     double factor;
-    double minimum_factor = state->focus_mode ? 0.5 : 0.8;
-    double maximum_factor = state->focus_mode ? 2.0 : 1.25;
+    double minimum_factor = state->focus_mode || neural_meter ? 0.5 : 0.8;
+    double maximum_factor = state->focus_mode || neural_meter ? 2.0 : 1.25;
     unsigned interval_frames = state->focus_mode ? 1 : AE_INTERVAL_FRAMES;
     int level;
     int exposure;
     int gain;
 
-    if (!state->auto_exposure ||
-        (state->ae_last_frame &&
-         state->frame - state->ae_last_frame < interval_frames))
+    if (!state->auto_exposure)
         return;
+    if (neural_meter) {
+        /* Keep the exposure feedback cadence independent of inference FPS. */
+        if (state->ae_neural_frame == state->neural.frame ||
+            (state->ae_neural_last_ms &&
+             now_ms - state->ae_neural_last_ms < AE_NEURAL_INTERVAL_MS))
+            return;
+        state->ae_neural_frame = state->neural.frame;
+        state->ae_neural_last_ms = now_ms;
+    } else if (state->ae_last_frame &&
+               state->frame - state->ae_last_frame < interval_frames) {
+        return;
+    }
     state->ae_last_frame = state->frame;
     for (int i = 0; i < 2; ++i)
-        state->ae_level[i] = image_percentile(state->latest[i], 75, &clipped[i]);
+        state->ae_level[i] = image_percentile(neural_meter && i == 0 ? state->neural.input :
+                                             state->latest[i], 75, &clipped[i]);
     state->ae_clipped_percent = clipped[0] > clipped[1] ? clipped[0] : clipped[1];
     level = state->ae_level[0] < state->ae_level[1] ?
         state->ae_level[0] : state->ae_level[1];
 
-    /* The focus percentile tolerates small reflections; broad clipping still
-     * raises the metered level. Depth keeps its stricter highlight limit. */
-    if (!state->focus_mode && state->ae_clipped_percent > AE_CLIP_PERCENT) {
+    /* Focus and neural metering tolerate small reflections; broad clipping
+     * still raises the percentile. Stereo-only keeps its highlight limit. */
+    if (!state->focus_mode && !neural_meter && state->ae_clipped_percent > AE_CLIP_PERCENT) {
         factor = 0.8;
     } else if (level < AE_LOW || level > AE_HIGH) {
         factor = (double)(AE_TARGET - SENSOR_BLACK_LEVEL) /
@@ -581,9 +704,9 @@ static void auto_exposure_update(struct Server *state)
                               &exposure, &gain);
     if (exposure == state->exposure && gain == state->gain)
         return;
-    if (apply_sensor_settings(exposure, gain) < 0) {
+    if (apply_sensor_settings(state, exposure, gain) < 0) {
         int saved_errno = errno;
-        apply_sensor_settings(state->exposure, state->gain);
+        apply_sensor_settings(state, state->exposure, state->gain);
         state->auto_exposure = 0;
         snprintf(state->error, sizeof(state->error),
                  "auto exposure disabled: %s", strerror(saved_errno));
@@ -616,23 +739,56 @@ static void pair_if_ready(struct Server *state)
     a->fresh = b->fresh = 0;
     a->unpack_ms = b->unpack_ms = 0;
     int64_t now = monotonic_ms();
-    if (now - state->last_pair_ms < PROCESS_INTERVAL_MS)
+    int interval = state->calibration_mode ? FOCUS_INTERVAL_MS : PROCESS_INTERVAL_MS;
+    if (now - state->last_pair_ms < interval)
         return;
     int64_t process_start_us = monotonic_us();
     const struct Camera *left = &state->cameras[LEFT_CAMERA];
     const struct Camera *right = &state->cameras[RIGHT_CAMERA];
+    struct ProfileCycle cycle = {
+        .frame = state->frame + 1,
+        .cameras = {left->profile_range, right->profile_range},
+    };
     memcpy(state->latest[0], left->image, PIXELS);
     memcpy(state->latest[1], right->image, PIXELS);
     int64_t depth_start_us = monotonic_us();
-    depth_compute(state->latest[0], state->latest[1], &state->calibration,
-                  state->depth_visual, state->depth_mm);
+    if (state->calibration_mode) {
+        memcpy(state->calibration_pair + CAL_PAIR_HEADER_BYTES,
+               state->calibration_pending + LEFT_CAMERA * FOCUS_BMP_BYTES, FOCUS_BMP_BYTES);
+        memcpy(state->calibration_pair + CAL_PAIR_HEADER_BYTES + FOCUS_BMP_BYTES,
+               state->calibration_pending + RIGHT_CAMERA * FOCUS_BMP_BYTES, FOCUS_BMP_BYTES);
+    } else if (state->depth_engine != 1) {
+        struct ProfileStamp match_start = profile_start();
+        depth_compute_masked(state->latest[0], state->latest[1], &state->calibration,
+                             state->match_valid[0], state->match_valid[1],
+                             state->depth_visual, state->depth_mm);
+        cycle.stereo.start = match_start.wall_ns;
+        cycle.stereo.end = profile_end_traced(&state->profile[PROFILE_MATCH], match_start, TIMELINE_STEREO);
+    }
     timing_sample(&state->diagnostics.depth,
                   (monotonic_us() - depth_start_us) / 1000.0);
     state->pair_delta_ms = fabs((double)delta) / 1000.0;
     state->last_pair_ms = now;
     state->frame++;
+    state->profile_cycle = cycle;
+    state->capture_timestamp_us = (a->timestamp_us + b->timestamp_us) / 2;
+    if (!state->calibration_mode && state->depth_engine && left->neural_ready &&
+        now - state->neural_last_ms >= NEURAL_INTERVAL_MS) {
+        int fuse = state->depth_engine == 2 && state->fisheye.valid;
+        struct ProfileStamp queue_start = profile_start();
+        if (neural_submit(left->neural_image, fuse ? state->depth_mm : NULL,
+                          fuse ? state->match_valid[0] : NULL, state->frame, &cycle))
+            state->neural_last_ms = now;
+        profile_end_traced(&state->profile[PROFILE_QUEUE], queue_start, TIMELINE_CAMERA_CPU);
+    }
+    if (!state->calibration_mode && state->depth_engine)
+        update_neural_snapshot(state);
     int64_t ae_start_us = monotonic_us();
-    auto_exposure_update(state);
+    struct ProfileStamp ae_start = profile_start();
+    if (state->auto_exposure) {
+        auto_exposure_update(state, now);
+        profile_end_traced(&state->profile[PROFILE_AE], ae_start, TIMELINE_CAMERA_CPU);
+    }
     timing_sample(&state->diagnostics.auto_exposure,
                   (monotonic_us() - ae_start_us) / 1000.0);
     int64_t completed_us = monotonic_us();
@@ -645,14 +801,13 @@ static void pair_if_ready(struct Server *state)
                &state->diagnostics.last_output_us, completed_us);
 }
 
-/* Native packed RAW10 -> 8-bit BMP, without spatial downsampling. Only one
- * full-size buffer is allocated, and only while focus capture is active.
+/* Native packed RAW10 -> 8-bit BMP for focus and calibration capture.
  * Reverse horizontal order here too, matching the depth inputs. */
-static void focus_unpack(struct Server *state, const uint8_t *source, unsigned stride)
+static void native_unpack(uint8_t *bitmap, const uint8_t *source, unsigned stride)
 {
     for (unsigned y = 0; y < RAW_H; ++y) {
         const uint8_t *p = source + y * stride;
-        uint8_t *row = state->focus_bmp + 1078 + (RAW_H - 1 - y) * RAW_W;
+        uint8_t *row = bitmap + 1078 + (RAW_H - 1 - y) * RAW_W;
         for (unsigned x = 0; x < RAW_W; x += 4, p += 5) {
             row[RAW_W - 1 - x] = (p[0] >> 2) | ((p[1] & 3U) << 6);
             row[RAW_W - 2 - x] = (p[1] >> 4) | ((p[2] & 15U) << 4);
@@ -660,6 +815,11 @@ static void focus_unpack(struct Server *state, const uint8_t *source, unsigned s
             row[RAW_W - 4 - x] = p[4];
         }
     }
+}
+
+static void focus_unpack(struct Server *state, const uint8_t *source, unsigned stride)
+{
+    native_unpack(state->focus_bmp, source, stride);
     /* Reuse the small AE input arrays; in focus mode meter only the active
      * camera, rather than a stale image from the inactive sensor. */
     for (unsigned y = 0; y < DEPTH_H; ++y)
@@ -669,9 +829,20 @@ static void focus_unpack(struct Server *state, const uint8_t *source, unsigned s
     memcpy(state->latest[1], state->latest[0], PIXELS);
 }
 
+static int camera_requeue(struct Server *state, int index, unsigned buffer, int side)
+{
+    struct ProfileStamp queue_start = profile_start();
+    int result = camera_queue(&state->cameras[index], buffer);
+    int saved_errno = errno;
+    profile_end_traced(&state->profile[PROFILE_REQUEUE_LEFT + side], queue_start, TIMELINE_CAMERA_IO);
+    errno = saved_errno;
+    return result;
+}
+
 static void camera_drain(struct Server *state, int index)
 {
     struct Camera *camera = &state->cameras[index];
+    int side = index != LEFT_CAMERA;
     for (;;) {
         struct v4l2_buffer buffer = {0};
         struct v4l2_plane plane = {0};
@@ -679,11 +850,15 @@ static void camera_drain(struct Server *state, int index)
         buffer.memory = V4L2_MEMORY_MMAP;
         buffer.m.planes = &plane;
         buffer.length = 1;
-        if (xioctl(camera->fd, VIDIOC_DQBUF, &buffer) < 0) {
-            if (errno == EAGAIN)
+        struct ProfileStamp dequeue_start = profile_start();
+        int dequeued = xioctl(camera->fd, VIDIOC_DQBUF, &buffer);
+        int dequeue_error = errno;
+        profile_end_traced(&state->profile[PROFILE_DEQUEUE_LEFT + side], dequeue_start, TIMELINE_CAMERA_IO);
+        if (dequeued < 0) {
+            if (dequeue_error == EAGAIN)
                 return;
             snprintf(state->error, sizeof(state->error), "camera dequeue failed: %s",
-                     strerror(errno));
+                     strerror(dequeue_error));
             capture_stop(state);
             return;
         }
@@ -700,7 +875,7 @@ static void camera_drain(struct Server *state, int index)
                    &state->diagnostics.last_raw_timestamp_us[index],
                    timestamp_us);
         if (buffer.flags & V4L2_BUF_FLAG_ERROR) {
-            if (camera_queue(camera, buffer.index) < 0) {
+            if (camera_requeue(state, index, buffer.index, side) < 0) {
                 snprintf(state->error, sizeof(state->error), "camera queue failed: %s",
                          strerror(errno));
                 capture_stop(state);
@@ -715,11 +890,12 @@ static void camera_drain(struct Server *state, int index)
             return;
         }
         camera->last_frame_ms = monotonic_ms();
-        int interval = state->focus_mode ? FOCUS_INTERVAL_MS : PROCESS_INTERVAL_MS;
+        int interval = state->focus_mode || state->calibration_mode ?
+            FOCUS_INTERVAL_MS : PROCESS_INTERVAL_MS;
         if (state->last_pair_ms &&
             monotonic_ms() - state->last_pair_ms < interval) {
             state->diagnostics.skipped_frames[index]++;
-            if (camera_queue(camera, buffer.index) < 0) {
+            if (camera_requeue(state, index, buffer.index, side) < 0) {
                 snprintf(state->error, sizeof(state->error),
                          "camera queue failed: %s", strerror(errno));
                 capture_stop(state);
@@ -728,33 +904,64 @@ static void camera_drain(struct Server *state, int index)
             continue;
         }
         int64_t unpack_start_us = monotonic_us();
+        struct ProfileStamp unpack_start = profile_start();
         camera->last_frame_ms = monotonic_ms();
+        camera->neural_ready = 0;
         if (state->focus_mode)
             focus_unpack(state, camera->buffers[buffer.index].data, camera->stride);
+        else if (state->calibration_mode) {
+            native_unpack(state->calibration_pending + index * FOCUS_BMP_BYTES,
+                          camera->buffers[buffer.index].data, camera->stride);
+            downsample_raw10(camera->image, camera->buffers[buffer.index].data,
+                             camera->stride);
+        } else if (state->fisheye.valid)
+            fisheye_rectify_raw10(state->fisheye_maps, index == LEFT_CAMERA ? 0 : 1,
+                                  camera->buffers[buffer.index].data,
+                                  camera->stride, camera->image);
         else if (camera->scaled)
             unpack_raw10(camera->image, camera->buffers[buffer.index].data,
                          camera->stride);
         else
             downsample_raw10(camera->image, camera->buffers[buffer.index].data,
                              camera->stride);
+        profile_end_traced(&state->profile[PROFILE_UNPACK_LEFT + side], unpack_start, TIMELINE_CAMERA_CPU);
+        if (!side && !state->focus_mode && !state->calibration_mode && state->depth_engine &&
+            monotonic_ms() - state->neural_last_ms >= NEURAL_INTERVAL_MS) {
+            struct ProfileStamp remap_start = profile_start();
+            fisheye_remap_raw10(*state->neural_maps,
+                               NEURAL_PIXELS, camera->buffers[buffer.index].data,
+                               camera->stride, camera->neural_image);
+            camera->neural_ready = 1;
+            profile_end_traced(&state->profile[PROFILE_REMAP], remap_start, TIMELINE_CAMERA_CPU);
+        }
         double unpack_ms = (monotonic_us() - unpack_start_us) / 1000.0;
         timing_sample(&state->diagnostics.unpack[index], unpack_ms);
         state->diagnostics.decoded_frames[index]++;
         camera->timestamp_us = timestamp_us;
         camera->unpack_ms = unpack_ms;
         camera->fresh = 1;
-        if (camera_queue(camera, buffer.index) < 0) {
+        if (camera_requeue(state, index, buffer.index, side) < 0) {
             snprintf(state->error, sizeof(state->error), "camera queue failed: %s",
                      strerror(errno));
             capture_stop(state);
             return;
         }
+        camera->profile_range = (struct ProfileRange){
+            dequeue_start.wall_ns, profile_clock(CLOCK_MONOTONIC)
+        };
         if (state->focus_mode) {
             state->last_pair_ms = monotonic_ms();
             state->frame++;
+            state->profile_cycle = (struct ProfileCycle){
+                .frame = state->frame, .cameras = {camera->profile_range}
+            };
             timing_sample(&state->diagnostics.unpack_work, unpack_ms);
             int64_t ae_start_us = monotonic_us();
-            auto_exposure_update(state);
+            if (state->auto_exposure) {
+                struct ProfileStamp ae_start = profile_start();
+                auto_exposure_update(state, state->last_pair_ms);
+                profile_end_traced(&state->profile[PROFILE_AE], ae_start, TIMELINE_CAMERA_CPU);
+            }
             timing_sample(&state->diagnostics.auto_exposure,
                           (monotonic_us() - ae_start_us) / 1000.0);
             timing_sample(&state->diagnostics.process,
@@ -821,6 +1028,42 @@ static void load_calibration(struct Server *state)
         state->calibration = calibration;
     }
     fclose(input);
+}
+
+static int install_fisheye(struct Server *state, const struct FisheyeCalibration *calibration)
+{
+    struct FisheyeMaps *maps = malloc(sizeof(*maps));
+    if (!maps)
+        return -1;
+    fisheye_build_maps(calibration, maps);
+    free(state->fisheye_maps);
+    state->fisheye_maps = maps;
+    state->fisheye = *calibration;
+    state->calibration = (struct Calibration){
+        .scale_px_mm = calibration->fx * calibration->baseline_mm, .valid = 1};
+    state->snapshot_valid[0] = state->snapshot_valid[1] = 0;
+    return 0;
+}
+
+static void load_fisheye(struct Server *state)
+{
+    FILE *input = fopen(FISHEYE_FILE, "r");
+    if (!input)
+        return;
+    char text[FISHEYE_TEXT_BYTES], error[160];
+    struct FisheyeCalibration calibration;
+    size_t length = fread(text, 1, sizeof(text) - 1, input);
+    text[length] = 0;
+    int extra = fgetc(input);
+    int failed = ferror(input);
+    fclose(input);
+    if (!failed && extra == EOF &&
+        !fisheye_parse(text, &calibration, error, sizeof(error))) {
+        if (install_fisheye(state, &calibration))
+            fprintf(stderr, "could not allocate fisheye rectification maps\n");
+    } else {
+        fprintf(stderr, "ignoring invalid fisheye calibration in %s\n", FISHEYE_FILE);
+    }
 }
 
 static int read_number(const char *path, double *value)
@@ -918,7 +1161,46 @@ static void put32(uint8_t *out, uint32_t value)
     put16(out + 2, value >> 16);
 }
 
-static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_palette)
+static const unsigned metric_distances[] = {
+    STEREO_SEARCH_FAR_MM, 2000, 1000, 500, 250, 150, STEREO_SEARCH_NEAR_MM
+};
+
+static const uint8_t *metric_depth_indices(void)
+{
+    static uint8_t indices[STEREO_SEARCH_FAR_MM + 1];
+    if (!indices[STEREO_SEARCH_NEAR_MM]) {
+        const double far = STEREO_SEARCH_FAR_MM;
+        const double scale = 254 / log(far / STEREO_SEARCH_NEAR_MM);
+        for (unsigned mm = 1; mm <= STEREO_SEARCH_FAR_MM; ++mm) {
+            unsigned distance = mm < STEREO_SEARCH_NEAR_MM ? STEREO_SEARCH_NEAR_MM : mm;
+            indices[mm] = 1 + (uint8_t)(scale * log(far / distance) + 0.5);
+        }
+    }
+    return indices;
+}
+
+static const uint8_t *metric_bmp_palette(void)
+{
+    static uint8_t bytes[1024];
+    static const uint8_t stops[][3] = {
+        {225, 45, 52}, {250, 112, 34}, {247, 206, 51}, {117, 210, 62},
+        {41, 200, 159}, {48, 153, 237}, {54, 83, 232}
+    };
+    const unsigned last_stop = sizeof(stops) / sizeof(*stops) - 1;
+    if (!bytes[6]) {
+        for (unsigned i = 1; i < 256; ++i) {
+            unsigned position = (i - 1) * last_stop;
+            unsigned a = position / 254, b = a < last_stop ? a + 1 : a;
+            unsigned weight = position % 254;
+            for (unsigned channel = 0; channel < 3; ++channel)
+                bytes[i * 4 + 2 - channel] = ((254 - weight) * stops[a][channel] +
+                    weight * stops[b][channel] + 127) / 254;
+        }
+    }
+    return bytes;
+}
+
+static void init_bmp(uint8_t *out, unsigned width, unsigned height, enum BmpPalette palette)
 {
     memset(out, 0, 1078);
     out[0] = 'B';
@@ -932,37 +1214,79 @@ static void init_bmp(uint8_t *out, unsigned width, unsigned height, int depth_pa
     put16(out + 28, 8);
     put32(out + 34, width * height);
     put32(out + 46, 256);
+    if (palette == BMP_DEPTH_COLOURS) {
+        memcpy(out + 54, metric_bmp_palette(), 1024);
+        return;
+    }
     for (int i = 0; i < 256; ++i) {
         uint8_t *entry = out + 54 + i * 4;
-        if (depth_palette && i) {
-            entry[0] = 255 - i;
-            entry[1] = 255 - abs(2 * i - 255);
-            entry[2] = i;
-        } else if (!depth_palette) {
-            /* Subtract the sensor black pedestal before display gamma. */
-            double signal = i > SENSOR_BLACK_LEVEL ?
-                (double)(i - SENSOR_BLACK_LEVEL) / (255 - SENSOR_BLACK_LEVEL) : 0;
-            uint8_t bright = (uint8_t)(pow(signal, 0.45) * 255.0 + 0.5);
+        if (palette == BMP_LUMA) {
+            uint8_t bright = image_display_luma((unsigned)i);
             entry[0] = entry[1] = entry[2] = bright;
+        } else if (i) {
+            entry[0] = i;
+            entry[1] = 255 - abs(2 * i - 255);
+            entry[2] = 255 - i;
         }
     }
 }
 
-static const uint8_t *make_bmp(const uint8_t *image, int depth_palette)
+static const uint8_t *make_bmp(const uint8_t *image, enum BmpPalette palette)
 {
-    init_bmp(bmp, DEPTH_W, DEPTH_H, depth_palette);
+    init_bmp(bmp, DEPTH_W, DEPTH_H, palette);
     for (int y = 0; y < DEPTH_H; ++y)
         memcpy(bmp + 1078 + y * DEPTH_W,
                image + (DEPTH_H - 1 - y) * DEPTH_W, DEPTH_W);
     return bmp;
 }
 
-static const uint8_t *make_depth_pgm(const struct Server *state, size_t *length)
+static const uint8_t *make_metric_bmp(const uint16_t *depth)
+{
+    init_bmp(bmp, DEPTH_W, DEPTH_H, BMP_DEPTH_COLOURS);
+    const uint8_t *indices = metric_depth_indices();
+    for (unsigned y = 0; y < DEPTH_H; ++y) {
+        uint8_t *row = bmp + 1078 + (DEPTH_H - 1 - y) * DEPTH_W;
+        for (unsigned x = 0; x < DEPTH_W; ++x) {
+            unsigned mm = depth[y * DEPTH_W + x];
+            row[x] = indices[mm < STEREO_SEARCH_FAR_MM ? mm : STEREO_SEARCH_FAR_MM];
+        }
+    }
+    return bmp;
+}
+
+/* A single image keeps the metric preview and source map on the same frame. */
+static const uint8_t *make_fused_bmp(const struct Server *state)
+{
+    static uint8_t image[1078 + 2 * PIXELS];
+    init_bmp(image, 2 * DEPTH_W, DEPTH_H, BMP_STEREO_DEPTH);
+    /* Reserve the high palette indices for the source key. */
+    image[54 + 254 * 4] = 180;
+    image[55 + 254 * 4] = 190;
+    image[56 + 254 * 4] = 49;
+    image[54 + 255 * 4] = 75;
+    image[55 + 255 * 4] = 181;
+    image[56 + 255 * 4] = 240;
+    double scale = fabs(state->calibration.scale_px_mm);
+    for (unsigned y = 0; y < DEPTH_H; ++y) {
+        uint8_t *out = image + 1078 + (DEPTH_H - 1 - y) * 2 * DEPTH_W;
+        for (unsigned x = 0; x < DEPTH_W; ++x) {
+            unsigned i = y * DEPTH_W + x;
+            unsigned depth = state->neural.fused_mm[i];
+            double parallax = depth ? fmin(scale / depth, MAX_DISPARITY) : 0;
+            out[x] = depth ? 1 + (uint8_t)(252 * parallax / MAX_DISPARITY + 0.5) : 0;
+            out[x + DEPTH_W] = state->neural.source[i] == FUSION_STEREO ? 254 :
+                state->neural.source[i] == FUSION_ESTIMATED ? 255 : 0;
+        }
+    }
+    return image;
+}
+
+static const uint8_t *make_depth_pgm(const uint16_t *depth, size_t *length)
 {
     int header = snprintf((char *)depth_pgm, 32, "P5\n%d %d\n65535\n",
                           DEPTH_W, DEPTH_H);
     for (int i = 0; i < PIXELS; ++i) {
-        uint16_t value = state->depth_mm[i];
+        uint16_t value = depth[i];
         depth_pgm[header + i * 2] = value >> 8;
         depth_pgm[header + i * 2 + 1] = value & 255;
     }
@@ -970,7 +1294,53 @@ static const uint8_t *make_depth_pgm(const struct Server *state, size_t *length)
     return depth_pgm;
 }
 
-static char index_page[49152];
+static void put64(uint8_t *out, uint64_t value)
+{
+    put32(out, (uint32_t)value);
+    put32(out + 4, (uint32_t)(value >> 32));
+}
+
+/* One HTTP response contains one stereo pair and the explicitly identified
+ * asynchronous neural result. All scalar fields are little-endian. */
+static const uint8_t *make_frame_packet(const struct Server *state, size_t *length)
+{
+    static uint8_t packet[80 + PIXELS * 12];
+    _Static_assert(sizeof(float) == 4 && sizeof(double) == 8, "frame packet scalar sizes");
+    memset(packet, 0, 80);
+    memcpy(packet, "4REELD1", 7);
+    put32(packet + 8, 1);
+    put32(packet + 12, DEPTH_W);
+    put32(packet + 16, DEPTH_H);
+    unsigned flags = (state->fisheye.valid && state->depth_engine != 1 ? 1U : 0U) |
+        (state->neural.available ? 2U : 0U) | (state->fisheye.valid ? 4U : 0U) |
+        (state->neural.available && !state->fisheye.valid ? 8U : 0U) |
+        (state->neural.available ? 16U : 0U);
+    put32(packet + 20, flags);
+    put64(packet + 24, state->frame);
+    put64(packet + 32, (uint64_t)state->capture_timestamp_us);
+    put64(packet + 40, state->neural.frame);
+    const double projection[] = {state->fisheye.fx, state->fisheye.fy,
+                                  state->fisheye.cx, state->fisheye.cy};
+    for (unsigned i = 0; i < 4; ++i) {
+        uint64_t bits;
+        memcpy(&bits, &projection[i], sizeof(bits));
+        put64(packet + 48 + i * 8, bits);
+    }
+    memcpy(packet + 80, state->latest[0], PIXELS);
+    memcpy(packet + 80 + PIXELS, state->latest[1], PIXELS);
+    for (unsigned i = 0; i < PIXELS; ++i)
+        put16(packet + 80 + PIXELS * 2 + i * 2, state->depth_mm[i]);
+    for (unsigned i = 0; i < PIXELS; ++i) {
+        uint32_t bits;
+        memcpy(&bits, &state->neural.inverse_depth[i], sizeof(bits));
+        put32(packet + 80 + PIXELS * 4 + i * 4, bits);
+    }
+    /* Version 1 reserves its second neural plane. Bit 4 identifies left-only data. */
+    *length = sizeof(packet);
+    return packet;
+}
+
+static char index_page[65536];
 static size_t index_length;
 
 static int load_index(void)
@@ -1042,6 +1412,49 @@ static void respond(struct HttpResponse *response, int status,
     response->content_type = type;
     response->body = body;
     response->body_len = length;
+    response->zipdepth_scale[0] = '\0';
+}
+
+static void set_zipdepth_scale(struct HttpResponse *response)
+{
+    const uint8_t *indices = metric_depth_indices();
+    char *header = response->zipdepth_scale;
+    size_t used = 0;
+    for (unsigned i = 0; i < sizeof(metric_distances) / sizeof(*metric_distances); ++i) {
+        unsigned mm = metric_distances[i];
+        size_t remaining = sizeof(response->zipdepth_scale) - used;
+        int length = snprintf(header + used, remaining, "%s[%u,%u]",
+                              used ? "," : "[", (unsigned)indices[mm], mm);
+        if (length < 0 || (size_t)length + 2 > remaining) {
+            header[0] = '\0';
+            return;
+        }
+        used += (size_t)length;
+    }
+    memcpy(header + used, "]", 2);
+}
+
+static const char *metric_legend_json(void)
+{
+    static char legend[256];
+    if (!legend[0]) {
+        const uint8_t *indices = metric_depth_indices(), *palette = metric_bmp_palette();
+        size_t used = 0;
+        for (unsigned i = 0; i < sizeof(metric_distances) / sizeof(*metric_distances); ++i) {
+            unsigned mm = metric_distances[i];
+            const uint8_t *bgr = palette + 4 * indices[mm];
+            size_t remaining = sizeof(legend) - used;
+            int length = snprintf(legend + used, remaining, "%s[%u,\"#%02x%02x%02x\"]",
+                                  i ? "," : "[", mm, bgr[2], bgr[1], bgr[0]);
+            if (length < 0 || (size_t)length + 2 > remaining) {
+                legend[0] = '\0';
+                return "[]";
+            }
+            used += (size_t)length;
+        }
+        memcpy(legend + used, "]", 2);
+    }
+    return legend;
 }
 
 static void respond_json(struct HttpResponse *response, int status,
@@ -1066,6 +1479,75 @@ static const char *diagnostic_number(char *buffer, size_t size, double value,
     return buffer;
 }
 
+static void profile_response(const struct Server *state, struct HttpResponse *response)
+{
+    static const char *const stages[PROFILE_STAGE_COUNT] = {
+        [PROFILE_DEQUEUE_LEFT] = "left_dequeue", [PROFILE_DEQUEUE_RIGHT] = "right_dequeue",
+        [PROFILE_REQUEUE_LEFT] = "left_requeue", [PROFILE_REQUEUE_RIGHT] = "right_requeue",
+        [PROFILE_UNPACK_LEFT] = "left_rectify", [PROFILE_UNPACK_RIGHT] = "right_rectify",
+        [PROFILE_REMAP] = "neural_remap", [PROFILE_MATCH] = "stereo",
+        [PROFILE_AE] = "exposure", [PROFILE_SENSOR] = "sensor_control",
+        [PROFILE_QUEUE] = "neural_submit",
+        [PROFILE_HTTP_IMAGE] = "http_image", [PROFILE_HTTP_STATUS] = "http_status",
+        [PROFILE_HTTP_OTHER] = "http_other",
+    };
+    struct NeuralProfile neural;
+    neural_profile(&neural);
+    struct RveProfile rve = rve_profile();
+    struct {
+        const char *name;
+        struct ProfileMetric metric;
+    } accelerators[] = {
+        {"rve_sad", rve.sad}, {"rve_dma", rve.dma},
+        {"stereo_refine", rve.refine},
+        {"neural_queue", {.calls = neural.started, .wall_ns = neural.queue_ns}},
+        {"neural_pack", neural.pack}, {"npu_run", neural.run},
+        {"neural_decode", neural.decode}, {"fusion", neural.fusion},
+    };
+    static char report[4096 + TIMELINE_LANES * (PROFILE_TIMELINE_SAMPLES + 3)];
+    char load[8] = "null";
+    unsigned percent;
+    FILE *file = fopen("/proc/rknpu/load", "r");
+    if (file) {
+        if (fscanf(file, "NPU load: %u%%", &percent) == 1 && percent <= 100)
+            snprintf(load, sizeof(load), "%u", percent);
+        fclose(file);
+    }
+    uint64_t now = profile_clock(CLOCK_MONOTONIC);
+    int length = snprintf(report, sizeof(report),
+        "{\"wall_ms\":%.3f,\"process_cpu_ms\":%.3f,\"main_cpu_ms\":%.3f,"
+        "\"npu_load_pct\":%s,\"replaced_jobs\":%" PRIu64 ",\"stages\":{",
+        now / 1000000.0,
+        profile_clock(CLOCK_PROCESS_CPUTIME_ID) / 1000000.0,
+        profile_clock(CLOCK_THREAD_CPUTIME_ID) / 1000000.0,
+        load, neural.dropped);
+    for (unsigned i = 0; i < PROFILE_STAGE_COUNT + sizeof(accelerators) / sizeof(*accelerators); ++i) {
+        unsigned extra = i - PROFILE_STAGE_COUNT;
+        const char *name = i < PROFILE_STAGE_COUNT ? stages[i] : accelerators[extra].name;
+        struct ProfileMetric value = i < PROFILE_STAGE_COUNT ?
+            state->profile[i] : accelerators[extra].metric;
+        int added = snprintf(report + length, sizeof(report) - length,
+            "%s\"%s\":{\"calls\":%" PRIu64 ",\"cpu_ms\":%.3f,\"wall_ms\":%.3f}",
+            i ? "," : "", name, value.calls, value.cpu_ns / 1000000.0, value.wall_ns / 1000000.0);
+        if (added < 0 || (size_t)added + 2 >= sizeof(report) - length) {
+            respond_json(response, 500, "profiling response exceeded its buffer");
+            return;
+        }
+        length += added;
+    }
+    const struct ProfileCycle *cycle = neural.cycle.frame ? &neural.cycle : &state->profile_cycle;
+    char rows[TIMELINE_LANES][PROFILE_TIMELINE_SAMPLES + 1];
+    uint64_t duration = profile_timeline(cycle, rows);
+    length += snprintf(report + length, sizeof(report) - length,
+                       "},\"timeline\":{\"frame\":%" PRIu64 ",\"duration_ms\":%.3f,\"zipdepth\":%s,\"rows\":[",
+                       cycle->frame, duration / 1000000.0, cycle->neural.end ? "true" : "false");
+    for (unsigned i = 0; i < TIMELINE_LANES; ++i)
+        length += snprintf(report + length, sizeof(report) - length,
+                           "%s\"%s\"", i ? "," : "", rows[i]);
+    memcpy(report + length, "]}}", 3);
+    respond(response, 200, "application/json", report, (size_t)length + 3);
+}
+
 static void status_response(const struct Server *state, struct HttpResponse *response)
 {
     double accel[3];
@@ -1087,6 +1569,14 @@ static void status_response(const struct Server *state, struct HttpResponse *res
         "\"ae_clipped_percent\":%.3f,\"swapped\":true,"
         "\"calibrated\":%s,\"offset_px\":%.5f,"
         "\"scale_px_mm\":%.5f,\"vertical_px\":%.5f,"
+        "\"metric_legend\":%s,"
+        "\"pipeline\":\"%s\",\"timestamp_us\":%" PRId64 ","
+        "\"fisheye_calibrated\":%s,\"fisheye_rms\":%.4f,\"baseline_mm\":%.4f,"
+        "\"neural\":{\"available\":%s,\"frame\":%" PRIu64 ",\"pair_ms\":%.3f,\"inference_ms\":%.3f,\"error\":\"%s\","
+        "\"projection\":\"%s\",\"hfov_degrees\":%.1f,\"metric\":%s,"
+        "\"metric_frame\":%" PRIu64 ",\"metric_age_ms\":%" PRIu64 ","
+        "\"metric_reference_frame\":%" PRIu64 "},"
+        "\"fusion\":{\"fit\":%d,\"measured\":%u,\"estimated\":%u,\"anchors\":%u,\"inliers\":%u},"
         "\"accel\":%s,\"diagnostics\":{"
         "\"depth_backend\":\"%s\",\"sad_ms\":%.3f,\"sad_passes\":%u,"
         "\"capture_backend\":\"%s\","
@@ -1106,18 +1596,38 @@ static void status_response(const struct Server *state, struct HttpResponse *res
         "\"error\":\"%s\"}",
         state->capture ? "true" : "false", state->frame,
         state->frame && !state->focus_mode ? state->pair_delta_ms : -1.0,
-        state->focus_mode ? "focus" : "depth", state->focus_side ? "right" : "left",
+        state->focus_mode ? "focus" : state->calibration_mode ? "calibration" : "depth",
+        state->focus_side ? "right" : "left",
         state->exposure, state->gain,
         state->auto_exposure ? "true" : "false",
         state->ae_level[0], state->ae_level[1], state->ae_clipped_percent,
         state->calibration.valid ? "true" : "false",
         state->calibration.offset_px, state->calibration.scale_px_mm,
-        state->calibration.vertical_px, accel_json,
-        state->focus_mode ? "Paused for focus" : rve_sad_status(),
+        state->calibration.vertical_px, metric_legend_json(),
+        state->depth_engine == 1 ? "zipdepth" : state->depth_engine == 2 ? "both" : "stereo",
+        state->capture_timestamp_us,
+        state->fisheye.valid ? "true" : "false", state->fisheye.rms, fabs(state->fisheye.baseline_mm),
+        state->neural.available ? "true" : "false", state->neural.frame,
+        state->neural.milliseconds, state->neural.milliseconds, state->neural.error,
+        state->fisheye.valid ? "calibrated" : "estimated-lens",
+        state->fisheye.valid ? 2 * atan(DEPTH_W / (2 * state->fisheye.fx)) * 180 / 3.141592653589793 : 110.0,
+        state->neural.available && state->neural.metric_frame ? "true" : "false",
+        state->neural.metric_frame,
+        state->neural.metric_capture_ns ?
+            (profile_clock(CLOCK_MONOTONIC) - state->neural.metric_capture_ns) / 1000000 : 0,
+        state->neural.metric_reference_frame,
+        state->neural.fusion.fit, state->neural.fusion.measured,
+        state->neural.fusion.estimated, state->neural.fusion.anchors, state->neural.fusion.inliers,
+        accel_json,
+        state->focus_mode ? "Paused for focus" : state->calibration_mode ?
+            "Fisheye calibration capture" : state->depth_engine == 1 ? "ZipDepth only" : rve_sad_status(),
         state->focus_mode ? 0 : rve_sad_milliseconds(), state->focus_mode ? 0 : rve_sad_passes(),
-        state->focus_mode ? "single camera, native RAW10" : "left CPU /8, right CIF /8",
-        RAW_W, RAW_H, state->focus_mode ? RAW_W : DEPTH_W,
-        state->focus_mode ? RAW_H : DEPTH_H,
+        state->focus_mode ? "single camera, native RAW10" :
+            state->calibration_mode ? "native stereo calibration" :
+            state->fisheye.valid ? "native stereo with fisheye rectification" :
+            state->depth_engine ? "native stereo, CPU /8" : "left CPU /8, right CIF /8",
+        RAW_W, RAW_H, state->focus_mode || state->calibration_mode ? RAW_W : DEPTH_W,
+        state->focus_mode || state->calibration_mode ? RAW_H : DEPTH_H,
         diagnostic_number(metric_json[0], sizeof(metric_json[0]),
                           state->diagnostics.output_fps,
                           state->diagnostics.output_fps_samples),
@@ -1180,11 +1690,26 @@ static void handle_post(const struct HttpRequest *request,
         }
         if (enabled) {
             form_value(request, "mode", mode, sizeof(mode));
-            if (strcmp(mode, "depth") && strcmp(mode, "focus")) {
-                respond_json(response, 400, "mode must be depth or focus");
+            if (strcmp(mode, "depth") && strcmp(mode, "focus") && strcmp(mode, "calibration")) {
+                respond_json(response, 400, "mode must be depth, focus, or calibration");
                 return;
             }
             int focus = !strcmp(mode, "focus"), focus_side = 0;
+            int calibration_mode = !strcmp(mode, "calibration");
+            int engine = state->depth_engine;
+            char pipeline[16];
+            if (!strcmp(mode, "depth") && !form_value(request, "pipeline", pipeline, sizeof(pipeline))) {
+                if (!strcmp(pipeline, "stereo"))
+                    engine = 0;
+                else if (!strcmp(pipeline, "zipdepth"))
+                    engine = 1;
+                else if (!strcmp(pipeline, "both"))
+                    engine = 2;
+                else {
+                    respond_json(response, 400, "pipeline must be stereo, zipdepth, or both");
+                    return;
+                }
+            }
             if (focus) {
                 if (form_value(request, "camera", side, sizeof(side)) < 0 ||
                     (strcmp(side, "left") && strcmp(side, "right"))) {
@@ -1193,16 +1718,50 @@ static void handle_post(const struct HttpRequest *request,
                 }
                 focus_side = !strcmp(side, "right");
             }
-            if (state->focus_mode != focus || state->focus_side != focus_side)
+            if (state->focus_mode != focus || state->focus_side != focus_side ||
+                state->calibration_mode != calibration_mode || state->depth_engine != engine)
                 capture_stop(state);
             state->focus_mode = focus;
             state->focus_side = focus_side;
+            state->calibration_mode = calibration_mode;
+            state->depth_engine = engine;
             if (capture_start(state) < 0) {
                 respond_json(response, 503, state->error);
                 return;
             }
         } else {
             capture_stop(state);
+        }
+        respond_ok(response);
+        return;
+    }
+    if (!strcmp(request->path, "/api/fisheye")) {
+        struct FisheyeCalibration calibration;
+        char error[160], text[FISHEYE_TEXT_BYTES];
+        if (fisheye_parse(request->body, &calibration, error, sizeof(error))) {
+            respond_json(response, 400, error);
+            return;
+        }
+        int length = fisheye_format(&calibration, text, sizeof(text));
+        FILE *output = length > 0 ? fopen(FISHEYE_FILE ".tmp", "w") : NULL;
+        if (!output) {
+            respond_json(response, 500, "could not write fisheye calibration");
+            return;
+        }
+        int failed = fwrite(text, 1, (size_t)length, output) != (size_t)length;
+        if (fflush(output))
+            failed = 1;
+        if (fclose(output))
+            failed = 1;
+        if (failed || rename(FISHEYE_FILE ".tmp", FISHEYE_FILE)) {
+            unlink(FISHEYE_FILE ".tmp");
+            respond_json(response, 500, "could not save fisheye calibration");
+            return;
+        }
+        capture_stop(state);
+        if (install_fisheye(state, &calibration)) {
+            respond_json(response, 503, "could not allocate fisheye rectification maps; restart the service");
+            return;
         }
         respond_ok(response);
         return;
@@ -1218,8 +1777,8 @@ static void handle_post(const struct HttpRequest *request,
                          "invalid exposure, gain, or auto exposure");
             return;
         }
-        if (state->capture && apply_sensor_settings(exposure, gain) < 0) {
-            apply_sensor_settings(state->exposure, state->gain);
+        if (state->capture && apply_sensor_settings(state, exposure, gain) < 0) {
+            apply_sensor_settings(state, state->exposure, state->gain);
             respond_json(response, 503, "could not set sensor controls");
             return;
         }
@@ -1227,6 +1786,8 @@ static void handle_post(const struct HttpRequest *request,
         state->gain = gain;
         state->auto_exposure = auto_exposure;
         state->ae_last_frame = 0;
+        state->ae_neural_frame = 0;
+        state->ae_neural_last_ms = 0;
         respond_ok(response);
         return;
     }
@@ -1253,6 +1814,10 @@ static void handle_post(const struct HttpRequest *request,
         return;
     }
     if (!strcmp(request->path, "/api/calibrate")) {
+        if (state->fisheye.valid) {
+            respond_json(response, 409, "fisheye stereo uses its measured calibration; use the fisheye calibration tool");
+            return;
+        }
         struct CalPoint near, far;
         if (!state->snapshot_valid[0] || !state->snapshot_valid[1]) {
             respond_json(response, 400, "take both near and far snapshots first");
@@ -1285,8 +1850,9 @@ static void handle_post(const struct HttpRequest *request,
             return;
         }
         if (state->frame && !state->focus_mode)
-            depth_compute(state->latest[0], state->latest[1], &state->calibration,
-                          state->depth_visual, state->depth_mm);
+            depth_compute_masked(state->latest[0], state->latest[1], &state->calibration,
+                                 state->match_valid[0], state->match_valid[1],
+                                 state->depth_visual, state->depth_mm);
         respond_ok(response);
         return;
     }
@@ -1304,7 +1870,56 @@ static void handle_get(const struct HttpRequest *request,
     }
     if (!strcmp(path, "/api/status")) {
         state->http_request_kind = HTTP_REQUEST_STATUS;
+        if (state->capture && !state->focus_mode && !state->calibration_mode && state->depth_engine)
+            update_neural_snapshot(state);
         status_response(state, response);
+        return;
+    }
+    if (!strcmp(path, "/api/profile")) {
+        profile_response(state, response);
+        return;
+    }
+    if (!strcmp(path, "/api/fisheye")) {
+        static char text[FISHEYE_TEXT_BYTES];
+        if (!state->fisheye.valid) {
+            respond_json(response, 409, "fisheye calibration has not been uploaded");
+            return;
+        }
+        int length = fisheye_format(&state->fisheye, text, sizeof(text));
+        respond(response, 200, "text/plain", text, (size_t)length);
+        return;
+    }
+    if (!strcmp(path, "/api/calibration/pair.bin")) {
+        if (!state->capture || !state->calibration_mode || !state->frame || !state->calibration_pair) {
+            respond_json(response, 409, "start native calibration capture and wait for a synchronized pair");
+            return;
+        }
+        uint8_t *header = state->calibration_pair;
+        memset(header, 0, CAL_PAIR_HEADER_BYTES);
+        memcpy(header, "4REELC1", 7);
+        put32(header + 8, RAW_W);
+        put32(header + 12, RAW_H);
+        put64(header + 16, state->frame);
+        put64(header + 24, (uint64_t)state->capture_timestamp_us);
+        uint64_t bits;
+        memcpy(&bits, &state->pair_delta_ms, sizeof(bits));
+        put64(header + 32, bits);
+        state->http_request_kind = HTTP_REQUEST_IMAGE;
+        respond(response, 200, "application/octet-stream", state->calibration_pair,
+                CAL_PAIR_HEADER_BYTES + 2 * FOCUS_BMP_BYTES);
+        return;
+    }
+    if (!strcmp(path, "/api/frame.bin")) {
+        if (!state->capture || state->focus_mode || state->calibration_mode || !state->frame) {
+            respond_json(response, 409, "start depth capture and wait for a stereo pair");
+            return;
+        }
+        if (state->depth_engine)
+            update_neural_snapshot(state);
+        size_t length;
+        const uint8_t *packet = make_frame_packet(state, &length);
+        state->http_request_kind = HTTP_REQUEST_IMAGE;
+        respond(response, 200, "application/octet-stream", packet, length);
         return;
     }
     if (!strcmp(path, "/api/focus.bmp")) {
@@ -1322,15 +1937,67 @@ static void handle_get(const struct HttpRequest *request,
         respond_json(response, 409, "stereo depth capture is paused for focus");
         return;
     }
+    if (!strcmp(path, "/api/fused.bmp") || !strcmp(path, "/api/fused.pgm")) {
+        update_neural_snapshot(state);
+        if (!state->capture || state->focus_mode || state->calibration_mode ||
+            !state->neural.available || !state->neural.fusion.fit) {
+            respond_json(response, 409, "start calibrated Stereo + ZipDepth capture");
+            return;
+        }
+        state->http_request_kind = HTTP_REQUEST_IMAGE;
+        if (!strcmp(path, "/api/fused.pgm")) {
+            size_t length;
+            const uint8_t *data = make_depth_pgm(state->neural.fused_mm, &length);
+            respond(response, 200, "application/octet-stream", data, length);
+        } else {
+            respond(response, 200, "image/bmp", make_fused_bmp(state), 1078 + 2 * PIXELS);
+        }
+        return;
+    }
+    if (!strcmp(path, "/api/zipdepth.bmp") || !strcmp(path, "/api/zipdepth.pgm")) {
+        update_neural_snapshot(state);
+        if (!state->capture || state->focus_mode || state->calibration_mode ||
+            !state->neural.available || !state->neural.metric_frame) {
+            respond_json(response, 409, "ZipDepth needs consistent stereo samples at different distances");
+            return;
+        }
+        state->http_request_kind = HTTP_REQUEST_IMAGE;
+        if (!strcmp(path, "/api/zipdepth.pgm")) {
+            size_t length;
+            const uint8_t *data = make_depth_pgm(state->neural.metric_mm, &length);
+            respond(response, 200, "application/octet-stream", data, length);
+        } else {
+            respond(response, 200, "image/bmp",
+                    make_metric_bmp(state->neural.metric_mm), BMP_BYTES);
+            set_zipdepth_scale(response);
+        }
+        return;
+    }
     const uint8_t *image = NULL;
-    int palette = 0;
-    if (!strcmp(path, "/api/left.bmp") && state->frame)
+    enum BmpPalette palette = BMP_LUMA;
+    if (!strcmp(path, "/api/neural-right.bmp") || !strcmp(path, "/api/neural-input-right.bmp")) {
+        respond_json(response, 409, "ZipDepth runs on the left view");
+        return;
+    }
+    if (!strcmp(path, "/api/neural-left.bmp") || !strcmp(path, "/api/neural-input-left.bmp")) {
+        update_neural_snapshot(state);
+        if (state->capture && !state->focus_mode && !state->calibration_mode && state->neural.available) {
+            int input = strstr(path, "input") != NULL;
+            image = input ? state->neural.input : state->neural.visual;
+            palette = input ? BMP_LUMA : BMP_DEPTH_COLOURS;
+        }
+    } else if (!strcmp(path, "/api/left.bmp") && state->frame)
         image = state->latest[0];
     else if (!strcmp(path, "/api/right.bmp") && state->frame)
         image = state->latest[1];
-    else if (!strcmp(path, "/api/depth.bmp") && state->frame) {
+    else if (!strcmp(path, "/api/depth.bmp") && state->frame && !state->calibration_mode && state->depth_engine != 1) {
+        if (state->calibration.valid) {
+            state->http_request_kind = HTTP_REQUEST_IMAGE;
+            respond(response, 200, "image/bmp", make_metric_bmp(state->depth_mm), BMP_BYTES);
+            return;
+        }
         image = state->depth_visual;
-        palette = 1;
+        palette = BMP_DEPTH_COLOURS;
     } else if (!strcmp(path, "/api/snapshot/near/left.bmp") &&
                state->snapshot_valid[0])
         image = state->snapshots[0][0];
@@ -1350,12 +2017,12 @@ static void handle_get(const struct HttpRequest *request,
         return;
     }
     if (!strcmp(path, "/api/depth.pgm")) {
-        if (!state->frame || !state->calibration.valid) {
+        if (!state->frame || !state->calibration.valid || state->calibration_mode || state->depth_engine == 1) {
             respond_json(response, 409, "calibrated depth is not ready");
             return;
         }
         size_t length;
-        const uint8_t *data = make_depth_pgm(state, &length);
+        const uint8_t *data = make_depth_pgm(state->depth_mm, &length);
         state->http_request_kind = HTTP_REQUEST_IMAGE;
         respond(response, 200, "application/octet-stream", data, length);
         return;
@@ -1422,8 +2089,13 @@ static int serve(const char *bind_address)
         }
         if (fds[0].revents & POLLIN) {
             int64_t http_start_us = monotonic_us();
+            struct ProfileStamp http_start = profile_start();
             server.http_request_kind = HTTP_REQUEST_OTHER;
             http_handle_client(listener, handle_request, &server);
+            enum ProfileStage stage = server.http_request_kind == HTTP_REQUEST_IMAGE ?
+                PROFILE_HTTP_IMAGE : server.http_request_kind == HTTP_REQUEST_STATUS ?
+                PROFILE_HTTP_STATUS : PROFILE_HTTP_OTHER;
+            profile_end(&server.profile[stage], http_start);
             double http_ms = (monotonic_us() - http_start_us) / 1000.0;
             if (server.http_request_kind == HTTP_REQUEST_IMAGE)
                 timing_sample(&server.diagnostics.http_image, http_ms);
@@ -1472,7 +2144,9 @@ int main(int argc, char **argv)
     server.exposure = 3000;
     server.gain = 128;
     server.auto_exposure = 1;
+    server.depth_engine = 2;
     load_calibration(&server);
+    load_fisheye(&server);
     find_accelerometer(&server);
     if (load_index() < 0) {
         fprintf(stderr, "cannot load %s\n", INDEX_FILE);
@@ -1494,6 +2168,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "accelerometer worker: %s\n", strerror(result));
     }
     int result = serve(bind_address);
+    free(server.fisheye_maps);
     if (accelerometer.started) {
         pthread_mutex_lock(&accelerometer.lock);
         accelerometer.stop = 1;

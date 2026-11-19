@@ -1,0 +1,21 @@
+{
+  "model": "ZipDepth-base NPU",
+  "source": "https://github.com/fabiotosi92/ZipDepth",
+  "source_commit": "91f3fd21e131641f51e8d35736d1958350180e3a",
+  "checkpoint_sha256": "627c04fda584133ead4310074884a4a037061b4c01ba86e73e492ea30fab570d",
+  "rknn_toolkit": "2.5.0",
+  "target": "rv1103",
+  "precision": "INT8",
+  "input": [
+    1,
+    3,
+    160,
+    256
+  ],
+  "output": "relative inverse depth",
+  "grayscale_channels": 3,
+  "calibration_images": 50,
+  "attention": "learned weighted context preserved through exact pooling reformulation",
+  "onnx_maximum_absolute_error": 1.2665987014770508e-07,
+  "sha256": "1fe6b20758ab56e35b2acbd9fe9ad7acad03e5359c4dfaaafa29cd3fe3f94ef6"
+}
