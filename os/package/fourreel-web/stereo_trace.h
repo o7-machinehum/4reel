@@ -7,6 +7,7 @@
 #define TRACE_EVENTS 64
 #define TRACE_RING 64
 #define TRACE_PROTOCOL 0x46525432u
+#define TRACE_DMA_PROTOCOL 0x46524431u
 #define TRACE_STAGES(X) \
  X(CAPTURE,"capture/pairing") X(QUIET_PRE,"capture quiet-before") \
  X(TRIGGER,"PWM submit/return") X(CAPTURE_WAIT,"capture poll wait") \
@@ -18,12 +19,16 @@
  X(SOURCE_R,"right DMA source prep") X(RGA_R,"right RGA synchronous call") \
  X(TENSOR_R,"right tensor/cache prep") X(NPU_R,"right NPU synchronous call") \
  X(OUTPUT_R,"right output copy/check") X(PYRAMID,"sparse pyramids") \
- X(CORNERS,"sparse corners") X(MATCH,"sparse epipolar/forward LK") \
+ X(CORNERS,"sparse corners") X(MATCH,"sparse epipolar patch search") \
  X(REVERSE,"sparse reverse validation") X(TRIANGULATE,"sparse triangulation") \
- X(FIT_L,"left robust fit") X(FIT_R,"right robust fit") \
+ X(FIT_L,"stereo shared scale") X(FIT_R,"reserved legacy fit") \
  X(MAP_L,"left map generation") X(MAP_R,"right map generation") \
  X(FILES,"pair file publication") X(SNAPSHOT,"on-demand snapshot copy") \
- X(TELEMETRY,"trace record overhead")
+ X(TELEMETRY,"trace record overhead") \
+ X(DMA_L,"left DMA buffer dequeue") X(DMA_R,"right DMA buffer dequeue") \
+ X(THUMB,"central stereo downsample") X(PATCH,"central patch descriptors") \
+ X(SEARCH,"stereo descriptor comparison") X(MUTUAL,"stereo mutual uniqueness") \
+ X(AE_METER,"exposure metering") X(AE_WRITE,"paired sensor control writes")
 enum TraceStage {
 #define X(a,b) TS_##a,
  TRACE_STAGES(X)
@@ -34,11 +39,25 @@ enum TraceResource { TR_MAIN, TR_HELPER, TR_RGA, TR_NPU, TR_WAIT, TR_IO, TR_ENVE
 struct TraceEvent { uint64_t begin, end, cpu; uint32_t stage, resource; };
 struct Trace { uint32_t enabled, count, overflow, reserved; struct TraceEvent event[TRACE_EVENTS]; };
 struct TraceMark { uint64_t wall,cpu; };
+/* Buffer descriptors inherited by the exec'd runner, valid until its reply. */
+struct RunnerDmaPair { int32_t fd[2]; uint32_t stride[2]; };
+_Static_assert(sizeof(struct RunnerDmaPair)==16,"musl/glibc DMA request ABI");
 struct RunnerRequest { uint64_t id; uint32_t protocol, enabled; };
 struct RunnerResponse { uint64_t id, first_eye_us, complete_us, cpu_us; struct Trace trace; };
 _Static_assert(sizeof(struct RunnerRequest)==16,"musl/glibc request ABI");
 _Static_assert(sizeof(struct RunnerResponse)==2096,"musl/glibc response ABI");
+struct SparseStats {
+ unsigned calibrated, candidates, forward, mutual, anchors, inliers;
+ double factor;
+ uint64_t source_pair, scale_age_us;
+};
+struct ExposureStats {
+ int enabled, lines, gain, next_lines, next_gain;
+ int p75[2], clip_permille[2];
+};
 struct PairTrace {
+ struct ExposureStats exposure;
+ struct SparseStats sparse;
  uint64_t id, start, end, input_us, trigger_us, first_capture_us, complete_capture_us;
  uint64_t first_eye_us, complete_inference_us, main_cpu_us, helper_cpu_us;
  uint64_t submit_wait_us, receive_wait_us;

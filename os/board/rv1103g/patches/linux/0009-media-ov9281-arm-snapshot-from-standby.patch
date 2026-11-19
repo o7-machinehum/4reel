@@ -1,0 +1,53 @@
+From: 4reel contributors
+Subject: [PATCH] media: ov9281: arm external snapshot from standby
+
+Ordinary streaming overrides the snapshot gate and free-runs even while
+FSIN is low. Keep the sensor in standby, enable automatic sleep and wake
+from its input, and disarm it on stream stop.
+
+---
+--- a/drivers/media/i2c/ov9281.c
++++ b/drivers/media/i2c/ov9281.c
+@@ -850,7 +850,7 @@
+ 		 */
+ 		static const struct regval trigger[] = {
+ 			{0x3006, 0x0c}, {0x303f, 0x01},
+-			{0x3030, 0x04}, {0x4f00, 0x01}, {REG_NULL, 0},
++			{0x4f00, 0x01}, {REG_NULL, 0},
+ 		};
+ 		ret = ov9281_write_array(ov9281->client, trigger);
+ 		if (ret)
+@@ -863,14 +863,33 @@
+ 	if (ret)
+ 		return ret;
+ 
++	if (ov9281->fsin->val) {
++		/*
++		 * Snapshot mode needs both auto-sleep and FSIN wake. Asserting
++		 * ordinary streaming here overrides the external trigger gate.
++		 */
++		ret = ov9281_write_reg(ov9281->client, OV9281_REG_CTRL_MODE,
++				       OV9281_REG_VALUE_08BIT, OV9281_MODE_SW_STANDBY);
++		if (ret)
++			return ret;
++		return ov9281_write_reg(ov9281->client, 0x3030, 1, BIT(7) | BIT(2));
++	}
++
+ 	return ov9281_write_reg(ov9281->client, OV9281_REG_CTRL_MODE,
+ 				OV9281_REG_VALUE_08BIT, OV9281_MODE_STREAMING);
+ }
+ 
+ static int __ov9281_stop_stream(struct ov9281 *ov9281)
+ {
++	int ret;
++
+ 	if (ov9281->is_thunderboot)
+ 		ov9281->is_first_streamoff = true;
++	if (ov9281->fsin->val) {
++		ret = ov9281_write_reg(ov9281->client, 0x3030, 1, 0x10);
++		if (ret)
++			return ret;
++	}
+ 	return ov9281_write_reg(ov9281->client, OV9281_REG_CTRL_MODE,
+ 				OV9281_REG_VALUE_08BIT, OV9281_MODE_SW_STANDBY);
+ }

@@ -12,7 +12,7 @@ lib=$bundle/glibc/lib
     -isystem "$bundle/glibc/include" -isystem "$("$cc" -print-file-name=include)" \
     -idirafter "$kernel_headers" -I "$bundle/include" -nostdlib \
     "$lib/crt1.o" "$lib/crti.o" "$("$cc" -print-file-name=crtbegin.o)" "$source" \
-    -L "$lib" -L "$bundle/lib" -Wl,-rpath,/opt/4reel-rknn/lib \
+    -L "$lib" -L "$bundle/lib" -Wl,--disable-new-dtags,-rpath,/opt/4reel-rknn/lib \
     -Wl,--dynamic-linker=/opt/4reel-rknn/lib/ld-linux-armhf.so.3 \
     -Wl,-rpath-link,"$lib" -lrga -lrknnmrt -l:libc.so.6 -l:libm.so.6 \
     -l:ld-linux-armhf.so.3 -lgcc "$("$cc" -print-file-name=crtend.o)" \

@@ -1,0 +1,51 @@
+From: 4reel contributors
+Subject: [PATCH] dma-buf: support sharing default CMA with the Rockchip NPU heap
+
+ARM reserves default DMA CMA before Rockchip heap setup. On a 64 MiB system
+two independent 32 MiB reservations cannot fit. Opt in to sharing the same
+CMA allocator and retain the Rockchip heap name used by the published ABI.
+
+---
+--- a/drivers/dma-buf/rk_heaps/Kconfig
++++ b/drivers/dma-buf/rk_heaps/Kconfig
+@@ -15,6 +15,14 @@
+ 	  Choose this option to enable dma-buf RockChip CMA heap. This heap is backed
+ 	  by the Contiguous Memory Allocator (CMA). If your system has these
+ 	  regions, you should say Y here.
++
++config DMABUF_HEAPS_ROCKCHIP_CMA_SHARED
++	bool "Use the default CMA area for the RockChip heap"
++	depends on DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y && DMA_CMA
++	help
++	  Back the RockChip NPU DMA heap with the same CMA allocator used by
++	  standard DMA devices. Use on memory-constrained boards to avoid
++	  reserving a second, independent region for the accelerator.
+ 
+ config DMABUF_HEAPS_ROCKCHIP_CMA_ALIGNMENT
+ 	int "Maximum PAGE_SIZE order of alignment for RockChip CMA Heap"
+--- a/drivers/dma-buf/rk_heaps/rk-dma-cma.c
++++ b/drivers/dma-buf/rk_heaps/rk-dma-cma.c
+@@ -48,6 +48,11 @@
+ 	int ret;
+ 	bool fix = false;
+ 
++	if (IS_ENABLED(CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_SHARED)) {
++		rk_dma_heap_cma = dev_get_cma_area(NULL);
++		return rk_dma_heap_cma ? 0 : -ENOMEM;
++	}
++
+ 	if (rk_dma_heap_size)
+ 		size = rk_dma_heap_size;
+ 	else
+--- a/drivers/dma-buf/rk_heaps/rk-cma-heap.c
++++ b/drivers/dma-buf/rk_heaps/rk-cma-heap.c
+@@ -654,7 +654,8 @@
+ 		return -ENOMEM;
+ 	cma_heap->cma = cma;
+ 
+-	exp_info.name = cma_get_name(cma);
++	/* This name is also the RKNPU driver's in-kernel lookup ABI. */
++	exp_info.name = "rk-dma-heap-cma";
+ 	exp_info.ops = &rk_cma_heap_ops;
+ 	exp_info.priv = cma_heap;
+ 	exp_info.support_cma = true;

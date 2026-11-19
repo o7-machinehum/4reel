@@ -60,11 +60,36 @@ ssh root@192.168.77.1 'tar -C /root/metric -cf - pair-*' > metric-pairs.tar
 Each depth result contains both eyes' `*-relative.pfm`, `*-z-metres.pfm`,
 `*-support.pgm`, and a shared status file with pair ID, individual V4L2 sequence,
 timestamp and flag values, trigger-command interval, real backend names,
-calibration hash, inliers, independent fit parameters, confidence and timing.
-`metric_valid` describes whether the estimator accepted that eye's fit; it is
+calibration hash, inlier count, shared scale factor, scale source pair, scale age and timing.
+`metric_valid` describes whether that eye's full map carries metre values; it is
 not an accuracy certification. `hardware_accuracy_validated` is always false in
 this development version. The command reports measured processing time only
 when it actually executes on the device.
+
+On each inference pair the main thread matches the central overlap while the
+helper runs ZipDepth. Without unit calibration it compares mean-normalized
+patches around grid corners in both eyes and requires a unique match in both
+directions. These image correspondences have no depth units. The calibrated
+path instead searches the calibrated epipolar curve, refines and checks
+matches, triangulates, and estimates one shared scale for the pair. Live
+mode loads `/etc/4reel/unit.ds` at startup if present, checking the unit ID.
+Install the imported camchain for the physical unit and restart the service.
+
+The **CPU main · stereo** timeline lane shows the stages executed on each pair.
+The table reports wall time, main-thread CPU, and rolling p50/p95 for each
+stage. The stereo summary gives point counts through rejection and elapsed
+overlap with the NPU host calls. Circles on the 1 Hz grayscale preview label
+corresponding points from that exact pair. The binary grayscale payload is
+unchanged. Its optional `X-Stereo-Matches` header contains space-separated
+`left_x,left_y,right_x,right_y` coordinates in logical native orientation.
+
+Live mode meters 640 central raw samples per eye on every synchronized pair.
+It commands the same exposure and analogue gain on both sensors between
+triggers. The dashboard shows the previous command in sensor lines and gain,
+the measured per-eye brightness and clipping, and the metering and control-write
+times. Batch capture preserves its existing exposure configuration. The four
+live canvases rotate 180° on the viewer. Raw stream and calibration coordinates
+keep their native orientation.
 
 ## Per-unit calibration
 
@@ -103,6 +128,14 @@ with the physical unit; it is not automatically authenticated against OTP.
 The runtime refuses a mismatching identifier or malformed file. It uses the
 calibrated baseline in metres, never the nominal 79.23 mm as a replacement.
 
+Rectilinear units may instead use a measured pinhole-radtan calibration. The
+runtime identifies the model using the file header, including at the default
+live path `/etc/4reel/unit.ds`. A `4REEL_PINHOLE1` file uses the same unit,
+source SHA256, orientation, and left-to-right extrinsics as `4REEL_DS1`. Each
+intrinsics row is `fx fy cx cy k1 k2 p1 p2` for a 1280 × 800 native image.
+The 180° browser rotation is display-only. Compute projections from the recorded
+camera pixels before this browser transform.
+
 ## Geometry, masks and confidence
 
 Coordinates are canonical delivered native pixel centres, x right, y down,
@@ -111,22 +144,31 @@ RIGHT. Outputs are 320x200, mapping output centre `(x,y)` to native
 `(4*x+1.5,4*y+1.5)`. PFM is little-endian float32, bottom row first.
 
 Depth is optical Z in metres, not ray range. Zero is invalid in metric PFM.
-Support mask 0 is invalid, 1 is inside the accepted anchors' convex hull and
-prediction range in the central native rectangle `[256,1024] x [160,640]`, and
-2 is extrapolation. Mask 1 means supported interpolation, not measured ground
-truth at every pixel. Peripheral estimates are explicitly extrapolated, and
-backward rays are invalid. Relative predictions retain the model's arbitrary
-affine inverse-depth scale. Calibration missing, weak texture, insufficient
-depth variation, or rejected geometry leaves metric maps entirely invalid.
+Each scaled pixel has mask value 1. Relative eyes have mask value 0. The matcher
+selects one corner per cell in a 5 by 4 grid in the central overlap.
+After a failed match or triangulation it tries a different textured quarter
+of that cell on the next frame. When all textured quarters have been tried,
+the cell starts again with its strongest corner. It searches
+at most 20 points per pair, with bidirectional normalized patch correlation,
+a local 3×3 peak search after the uniqueness check, and subpixel refinement.
+Triangulation takes the midpoint between the closest points on the two rays
+and checks that it reprojects within 1.5 native pixels in each eye and that the rays pass within 10 mm.
 
-The bounded CPU backend selects up to 96 grid-distributed corners, searches
-128 DS epipolar depth hypotheses at quarter resolution, refines with pyramidal
-LK through native resolution, and checks uniqueness, forward/backward error,
-cheirality, reprojection error, ray separation and minimum parallax. Separate
-deterministic robust affine fits map each eye's prediction to inverse Z. Fits
-need at least 12 inliers, 60% support, three image quadrants, and adequate depth
-and prediction spread. Confidence combines inlier fraction and residual RMS;
-it is a heuristic, not a calibrated probability. RVE SAD remains in the old
+For each triangulated point, sample each eye's relative inverse depth at its
+subpixel coordinates. Multiplying this sample by measured optical Z gives one
+scale estimate per eye. Give the physical point one vote using the geometric
+mean of its two estimates. Take the median in log space. Accept this scale
+when at least three distinct points and a strict majority of usable points
+agree within a factor of 1.25 in both eyes. Apply the same positive factor to
+both full maps: metres = factor / relative inverse depth. The multiplier
+preserves ZipDepth's depth ratios. Its accuracy depends on that shape.
+
+Until the first accepted fit, publish the relative maps. On later rejections
+reuse the last accepted scale and report its source pair and age at capture.
+The scale resets on process restart. An eye with predictions that cannot be
+converted to finite positive metres is published in full relative units.
+
+RVE SAD remains in the old
 dashboard. RVE corner/LK ABI/runtime behavior has not been established on this
 board, so the new sparse path reports CPU, never RVE.
 
@@ -173,16 +215,23 @@ official C variant of librga. Its RPATH is `/opt/4reel-rknn/lib`; the system
 loader and musl are untouched. QEMU loader checks resolve the full DSO chain
 without contacting devices. This proves loading, not NPU/DMA operation.
 
-One helper keeps one RKNN context and processes left then right. CPU sparse
-matching overlaps helper preprocessing/inference over bounded pipes. The next
-capture waits for completion; no unbounded frame queue exists. Compiler memory
-planning reports 6720 KiB internal plus 6146.94 KiB weights. Additional live
-allocations include two 1 MiB native image copies in each process, six capture
-buffers (about 6 MiB RAW8/7.3 MiB compact RAW10), RGA source/destination (~1.1
-MiB), tensor/output buffers, pyramids (~0.61 MiB), libc, kernel, and dashboard
-memory if not stopped. CMA is 32 MiB of the 64 MiB RAM. Peak allocation and
-fragmentation on real hardware remain acceptance gates; the compiler estimate
-does not prove the whole application fits. ~10 metric pairs/s is only a goal.
+RAW8 inference exports the six CIF buffers with `VIDIOC_EXPBUF` before the
+helper starts. Each trigger hands the helper the two buffer descriptors and
+row strides. Capture holds both buffers until the helper has returned and
+CPU consumers have finished reading them. RGA mirrors each native Y400 plane
+into a shared contiguous scratch buffer and averages it down to 320×200.
+Separate mirror and resize calls preserve the original input sampling. On the
+RV1103G1 bench, fusing them changed the tensor. The two-pass implementation
+matched every legacy prediction value for both eyes across three real pairs.
+
+The inference thread owns one RKNN context. Once the left input is ready,
+a worker prepares the right eye during the left NPU call. The worker has a
+separate resized plane and padded staging area. The inference thread copies
+that staging area into the bound RKNN input after the left run completes.
+Trace events record each RGA call, and helper thread CPU includes the worker.
+Calibrated sparse stereo reads the original captured rows in calibration
+coordinates using their stride and horizontal direction. RAW10 and native
+calibration capture retain the CPU unpack/copy path.
 
 ## Model provenance and build
 
@@ -253,13 +302,13 @@ to 10 pairs/s remain unverified/unimplemented optimizations.
 ## Low-load live preview and bottleneck diagnostics
 
 For continuous operation without filling the SD card, stop the old dashboard,
-then run (add the calibration option when the correct unit file is installed):
+then run (live mode also discovers the unit-matched calibration at this path):
 
 ```sh
 /etc/init.d/S85fourreel-web stop
 4reel-stereo --unit YOUR_UNIT_ID --live \
   --calibration /etc/4reel/unit.ds
-# Without a unit file, omit --calibration: output remains relative.
+# With no unit file, omit --calibration for image-space matches and relative depth.
 ```
 
 Open `http://192.168.77.1:8081/` on the connected workstation. The listener binds
@@ -270,29 +319,37 @@ The original dashboard is unchanged. Stop the stereo process before restarting
 use the original `--output DIR --count N` modes to save full maps/calibration
 pairs. Do not combine `--live` with `--output` or `--capture`.
 
-The default browser refresh is **1 Hz**. The server also caps new preview and
-statistics generation to once per second across clients. Opening no viewer
-means no image snapshots, encoding or preview traffic. Unticking refresh stops
-requests; capture and inference continue. Each response embeds a small BMP
-mosaic (160x100 per tile): physical left/right mono above their respective depth.
-One decimal-string trigger ID covers all four tiles, status and timeline.
-Metric output uses a fixed logarithmic 0.15–20 m colour range; relative maps use
-independent per-eye ranges and have **no metric scale**. Black means invalid;
-grey hatching identifies peripheral metric extrapolation. The existing full
-PFM/support files remain the data interface for precise saved-map retrieval.
+The dashboard displays both 320×200 depth maps at the completed-pair rate.
+The two native 1280×800 grayscale views and timing diagnostics refresh at
+1 Hz. Each section shows its source pair ID. Both eyes within a section share
+one camera trigger. The browser reports the displayed depth rate and skipped
+pair IDs. On the Ethernet bench configuration, open
+`http://192.168.78.1:8081/`.
 
-`GET /api/frame` returns the composite and telemetry together. It requests a
-snapshot of the next completed pair and returns the previous completed snapshot
-(or `ready:false` initially). This deliberate one-refresh delay avoids waiting
-for capture. Input age is displayed, and IDs identify stale snapshots. The main
-thread only **trylocks** the snapshot slot and copies buffers when requested;
-it never waits for HTTP. A busy viewer causes a skipped preview copy, not a
-camera-pipeline wait. The HTTP worker performs reduction, colour mapping, BMP
-encoding, JSON/percentiles and socket work. It accepts one client at a time,
-limits request reads to 0.5 s and sends to 2 s. Slow or excessive clients cannot
-queue pair work. The bitmap response is about 260 KiB at 1 Hz. The preview/ring,
-extra second-eye map and transient encoding allocations add approximately
-4 MiB of userspace memory; **peak RAM and contention still require board tests**.
+The browser requests `/api/depth?after=ID` and `/api/gray?native=1&after=ID`, starting
+at ID zero. A 204 response means there is no newer image available. A 200
+response carries the decimal `X-Pair-Id` and left then right pixel arrays in
+top-down row order. Depth uses little-endian float32 at 320×200 per eye.
+`X-Metric-Eyes` is a bit mask (left 1, right 2). If either eye is scaled into
+metres, the float arrays are followed by two uint8 support masks. Grayscale
+uses one byte per pixel. With `native=1`, apply a horizontal mirror to each eye
+when the response has `X-Horizontal-Flip: 1`. The existing
+`/api/gray?after=ID` endpoint returns the original display orientation.
+The browser colour-maps the depth data. Relative
+predictions use independent ranges for each eye. Metric depth uses a fixed
+logarithmic 0.30–20 m colour range. Distances outside the legend retain their
+numeric values. Depth packet headers include X-Stereo-Scale, X-Scale-Source-Pair,
+X-Scale-Age-Ms and X-Scale-Inliers. Source pair zero means no scale is available.
+
+At four relative-depth pairs/s plus one grayscale pair/s the image payload is
+about 33 Mbit/s. A separate sender handles the larger grayscale transfers.
+The capture thread uses nonblocking locks and publishes the latest completed
+pair. A slow viewer can skip pairs. Image copies cease when viewer demand
+expires, and the pipeline continues when the page is paused or hidden.
+
+The dashboard requests `/api/stats` for the timing sample. Its one-refresh
+delay avoids waiting for capture. The older compact BMP mosaic and timing
+response is available at `/api/frame`.
 
 With diagnostics on, every processed pair enters a fixed **64-pair ring**, with
 at most **64 timestamped events per pair**. Overflow is reported. Stage clocks
@@ -306,7 +363,7 @@ ring is intentionally not a persistent flight recorder.
 The displayed pair includes capture/pairing (including quiet guards, PWM
 submission, polling and per-eye dequeue/unpack); per-eye DMA source, RGA resize,
 tensor/cache preparation, synchronous NPU call and output copy; sparse pyramid,
-corners, epipolar/forward LK, reverse validation and triangulation; independent
+corners, epipolar patch search, reverse validation and triangulation; independent
 fits and map generation; file output when selected; and snapshot/record cost.
 Missing stages are unavailable, not zero-duration measurements. Rolling p50/p95
 use nearest-rank quantiles over only pairs containing that stage. Repeated

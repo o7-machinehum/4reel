@@ -305,7 +305,7 @@
  * Userspace enables it only after both sensors are armed.
  */
 &pwm8 {
-	pinctrl-names = "default";
+	pinctrl-names = "active";
 	pinctrl-0 = <&pwm8m1_pins>;
 	status = "okay";
 };

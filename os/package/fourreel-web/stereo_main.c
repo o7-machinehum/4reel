@@ -99,7 +99,7 @@ int main(int argc,char **argv)
             puts("Usage: 4reel-stereo --unit SERIAL (--live | --output DIR) [--count 1..10000] [--capture] [--raw10] [--calibration FILE]\n--preview-port PORT (default 8081, 0 disables HTTP); --diagnostics-off for baseline.\n"
                  "Stop dashboard capture first. --capture records native synchronized calibration pairs without NPU.\n"
                  "Default: RGA + genuine ZipDepth; missing calibration yields relative maps only.\n"
-                 "Metric maps are optical Z metres. mask 0=invalid 1=anchor-supported 2=extrapolated.\n"
+                 "Metric maps are optical Z metres. one shared stereo scale; mask 1=finite scaled pixel.\n"
                  "No hardware-verified accuracy or throughput is implied by this development build.");
             return !strcmp(argv[i],"--help") ? 0:2;
         }
@@ -108,6 +108,10 @@ int main(int argc,char **argv)
         fputs("Choose --live or --output DIR; --capture requires --output; valid --unit required\n",stderr); return 2;
     }
     struct StereoCalibration cal={0}; int calibrated=0;
+    if(live && !calfile) {
+        const char *installed="/etc/4reel/unit.ds";
+        if(access(installed,F_OK)==0 || errno!=ENOENT) calfile=installed;
+    }
     if(calfile) {
         if(stereo_calibration_load(calfile,unit,&cal)) { fputs("Invalid/mismatched unit calibration; refusing calibrated run\n",stderr); return 1; }
         calibrated=1;
@@ -117,20 +121,29 @@ int main(int argc,char **argv)
     if(!live && (statvfs(output,&space) || (uint64_t)space.f_bavail*space.f_frsize < (uint64_t)count*(capture ? 2100000:1200000)+8*1024*1024)) {
         fputs("Insufficient output space; reduce --count or use a larger filesystem\n",stderr); return 1;
     }
-    uint8_t *images=malloc(2*RAW),*masks=calloc(2,320*200);
+    int dma=raw8 && !capture;
+    uint8_t *images=dma ? NULL:malloc(2*RAW),*masks=calloc(2,320*200);
     float *pred=malloc(2*N*sizeof(float)),*metrics=calloc(2*N,sizeof(float));
     struct TraceRing *ring=calloc(1,sizeof(*ring));
     struct StereoPreview *preview=NULL;
-    if(!images || !pred || !metrics || !masks || !ring) return 1;
+    if((!dma && !images) || !pred || !metrics || !masks || !ring) return 1;
     int tx=-1,rx=-1; pid_t child=-1;
     int result=1;
     signal(SIGINT,stopping); signal(SIGTERM,stopping); signal(SIGPIPE,SIG_IGN);
+    if(stereo_capture_open(raw8)) { perror("stereo capture/FSIN setup"); goto done; }
+    if(live && stereo_capture_enable_ae()) { perror("paired auto-exposure setup"); goto done; }
+    if(dma && stereo_capture_export()) { perror("export RAW8 camera buffers"); goto done; }
+    if(stop) goto done;
     if(!capture) {
         int request[2],response[2];
         if(pipe(request) || pipe(response)) goto done;
         child=fork();
         if(child<0) goto done;
         if(!child) {
+            /* The parent handles stop signals. SDK buffers must be released by
+             * the helper itself after EOF or a closed response pipe. Ignored
+             * dispositions persist across exec, including the inherited SIGPIPE. */
+            signal(SIGINT,SIG_IGN); signal(SIGTERM,SIG_IGN);
             if(dup2(request[0],0)<0 || dup2(response[1],1)<0) _exit(126);
             close(request[0]); close(request[1]); close(response[0]); close(response[1]);
             execl("/opt/4reel-rknn/bin/zipdepth-runner","zipdepth-runner",
@@ -143,9 +156,11 @@ int main(int argc,char **argv)
     if(port) {
         preview=stereo_preview_start(port,diagnostics);
         if(!preview) { perror("stereo preview server"); goto done; }
-        fprintf(stderr,"Stereo preview: http://192.168.77.1:%u (1 Hz on demand)\n",port);
+        fprintf(stderr,"Stereo preview on port %u (depth at pair rate, grayscale at 1 Hz)\n",port);
     }
-    if(stereo_capture_open(raw8)) { perror("stereo capture/FSIN setup"); goto done; }
+    struct StereoCornerHistory corner_history={0};
+    double factor=0;
+    uint64_t scale_pair=0,scale_time=0;
     int previous_mode=-1;
     for(unsigned index=0;(live || index<count) && !stop;++index) {
         uint64_t started=now_us(),cpu_start=trace_clock(CLOCK_THREAD_CPUTIME_ID);
@@ -153,11 +168,19 @@ int main(int argc,char **argv)
         if(previous_mode!=(int)record.trace.enabled) { memset(ring,0,sizeof(*ring)); previous_mode=record.trace.enabled; }
         struct TraceMark timing=trace_begin(&record.trace);
         struct CapturePair pair;
-        if(stereo_capture_pair_timed(images,images+RAW,&pair,&record.trace)) {
+        struct CaptureDmaView view={0};
+        struct StereoImage eyes[2];
+        int acquired=dma ? stereo_capture_pair_dma(&pair,&record.trace,&view)
+                         : stereo_capture_pair_timed(images,images+RAW,&pair,&record.trace);
+        if(acquired) {
             record.id=pair.id; record.end=now_us(); trace_end(&record.trace,timing,TS_CAPTURE,TR_ENVELOPE);
             trace_ring_push(ring,&record);
             fprintf(stderr,"Failed pair %" PRIu64 "; capture/pairing %.3f ms; no result published\n",pair.id,(record.end-started)/1000.);
             perror("ambiguous/failed triggered pair"); goto done;
+        }
+        for(int e=0;e<2;e++) {
+            if(dma) eyes[e]=(struct StereoImage){view.data[e]+STEREO_W-1,(int)view.stride[e],-1};
+            else eyes[e]=(struct StereoImage){images+e*RAW,STEREO_W,1};
         }
         trace_end(&record.trace,timing,TS_CAPTURE,TR_ENVELOPE);
         record.id=pair.id; record.trigger_us=pair.trigger_before_us;
@@ -166,17 +189,22 @@ int main(int argc,char **argv)
         record.complete_capture_us=pair.dequeued_us[0]>pair.dequeued_us[1] ? pair.dequeued_us[0]:pair.dequeued_us[1];
         memcpy(record.sequence_gap,pair.sequence_gap,sizeof(record.sequence_gap));
         struct StereoMatch matches[STEREO_MAX_ANCHORS]; unsigned anchors=0;
-        struct StereoFit fits[2]={{0}}; struct StereoAnchor a[2][STEREO_MAX_ANCHORS];
         int valid[2]={0,0};
         uint64_t inference_started=now_us();
         if(!capture) {
-            struct RunnerRequest request={.id=pair.id,.protocol=TRACE_PROTOCOL,.enabled=record.trace.enabled};
+            struct RunnerRequest request={.id=pair.id,.protocol=dma ? TRACE_DMA_PROTOCOL:TRACE_PROTOCOL,.enabled=record.trace.enabled};
             timing=trace_begin(&record.trace);
             uint64_t *sw=record.trace.enabled ? &record.submit_wait_us:NULL;
-            if(io_all(tx,&request,sizeof(request),1,sw) || io_all(tx,images,2*RAW,1,sw)) goto inference_error;
+            if(io_all(tx,&request,sizeof(request),1,sw)) goto inference_error;
+            if(dma) {
+                struct RunnerDmaPair buffers={{view.fd[0],view.fd[1]},{view.stride[0],view.stride[1]}};
+                if(io_all(tx,&buffers,sizeof(buffers),1,sw)) goto inference_error;
+            } else if(io_all(tx,images,2*RAW,1,sw)) goto inference_error;
             trace_end(&record.trace,timing,TS_SUBMIT,TR_WAIT);
+            if(live && stereo_capture_adjust_ae(eyes,&record)) { perror("paired exposure update"); goto done; }
             /* CPU stereo overlaps the helper's RGA + sequential left/right NPU. */
-            if(calibrated) anchors=stereo_sparse_timed(images,images+RAW,&cal,matches,&record.trace);
+            stereo_match_pair(eyes,calibrated ? &cal:NULL,matches,&record.sparse,&record.trace,&corner_history);
+            anchors=record.sparse.anchors;
             struct RunnerResponse response;
             timing=trace_begin(&record.trace);
             uint64_t *rw=record.trace.enabled ? &record.receive_wait_us:NULL;
@@ -190,14 +218,19 @@ int main(int argc,char **argv)
                 else ++record.trace.overflow;
             }
             record.trace.overflow+=response.trace.overflow;
-            if(calibrated) for(int e=0;e<2;++e) {
+            if(calibrated) {
                 timing=trace_begin(&record.trace);
-                for(unsigned k=0;k<anchors;++k) a[e][k]=(struct StereoAnchor){
-                    .x=matches[k].xy[e][0],.y=matches[k].xy[e][1],
-                    .prediction=prediction_at(pred+e*N,matches[k].xy[e][0],matches[k].xy[e][1]),
-                    .inverse_z=1/matches[k].z[e],.weight=matches[k].weight};
-                valid[e]=calibrated && !stereo_fit(a[e],anchors,&fits[e]);
-                trace_end(&record.trace,timing,e ? TS_FIT_R:TS_FIT_L,TR_MAIN);
+                double votes[STEREO_MAX_ANCHORS][2];
+                for(unsigned k=0;k<anchors;k++) for(unsigned e=0;e<2;e++) {
+                    const double *xy=matches[k].xy[e];
+                    votes[k][e]=matches[k].z[e]*prediction_at(pred+e*N,xy[0],xy[1]);
+                }
+                record.sparse.inliers=stereo_scale(votes,anchors,&factor);
+                if(record.sparse.inliers) { scale_pair=pair.id; scale_time=started; }
+                record.sparse.factor=factor;
+                record.sparse.source_pair=scale_pair;
+                record.sparse.scale_age_us=scale_time ? started-scale_time:0;
+                trace_end(&record.trace,timing,TS_FIT_L,TR_MAIN);
             }
         }
         double processing_ms=(now_us()-inference_started)/1000.0;
@@ -221,19 +254,12 @@ int main(int argc,char **argv)
                     trace_end(&record.trace,timing,TS_FILES,TR_IO);
                 }
                 timing=trace_begin(&record.trace);
-                memset(metric,0,N*sizeof(float)); memset(mask,0,320*200);
-                if(valid[e]) for(int y=0;y<200;++y) for(int x=0;x<320;++x) {
-                    unsigned i=(y+12)*320+x;
-                    double v=pred[e*N+i],inv=fits[e].scale*v+fits[e].shift;
-                    double ray[3];
-                    if(!isfinite(inv) || inv<0.05 || inv>1/0.15 ||
-                       ds_ray(&cal.eye[e],4*x+1.5,4*y+1.5,ray) || ray[2]<=0) continue;
-                    metric[i]=1/inv;
-                    int support=stereo_support(a[e],anchors,&fits[e],4*x+1.5,4*y+1.5);
-                    if(v<fits[e].min_prediction || v>fits[e].max_prediction) support=2;
-                    mask[y*320+x]=support;
+                if(factor>0) {
+                    valid[e]=!stereo_scale_map(pred+e*N+TENSOR_PAD*TENSOR_W,metric+TENSOR_PAD*TENSOR_W,64000,factor);
+                    trace_end(&record.trace,timing,e ? TS_MAP_R:TS_MAP_L,TR_MAIN);
                 }
-                trace_end(&record.trace,timing,e ? TS_MAP_R:TS_MAP_L,TR_MAIN);
+                memset(mask,valid[e],64000);
+                if(!valid[e] && !live) memset(metric,0,N*sizeof(float));
                 if(!live) {
                     timing=trace_begin(&record.trace);
                     snprintf(path,sizeof(path),"%s/%s-z-metres.pfm",directory,eye);
@@ -255,18 +281,16 @@ int main(int argc,char **argv)
                 "  \"orientation\":\"left=1,right=0,hflip=both,right_sensor_rotation=180\",\n"
                 "  \"inference\":\"%s\",\"preprocess\":\"%s\",\"sparse\":\"%s\",\n"
                 "  \"calibration_loaded\":%s,\"calibration_sha256\":\"%s\",\"anchors\":%u,\n"
-                "  \"metric_valid\":[%s,%s],\"fit_confidence\":[%.6f,%.6f],\"inliers\":[%u,%u],\n"
-                "  \"inverse_z_scale\":[%.9g,%.9g],\"inverse_z_shift\":[%.9g,%.9g],\"inverse_z_rms\":[%.9g,%.9g],\n"
+                "  \"metric_valid\":[%s,%s],\"stereo_scale\":%.9g,\"scale_source_pair\":\"%" PRIu64 "\",\"scale_age_ms\":%.3f,\"scale_inliers\":%u,\n"
                 "  \"processing_ms\":%.3f,\"pair_work_ms\":%.3f,\"hardware_accuracy_validated\":false,\n"
-                "  \"depth_convention\":\"optical_z_metres;0_invalid;mask1_anchor_hull;mask2_extrapolation\"\n}\n",
+                "  \"depth_convention\":\"optical_z_metres;0_unavailable;mask1_global_scale\"\n}\n",
                 unit,pair.id,pair.trigger_before_us,pair.trigger_after_us,pair.timestamp_us[0],pair.timestamp_us[1],pair.sequence[0],pair.sequence[1],
                 pair.flags[0],pair.flags[1],raw8 ? "RAW8":"RAW10-top8",
                 capture ? "disabled-calibration-capture":"rknn-2.5.0-rv1103-one-context",
                 capture ? "native":"rga-gray-average-4x-pad12",
-                calibrated && !capture ? "cpu-grid-corners-epipolar-pyramidal-lk":"disabled-no-calibration",
+                capture ? "disabled-capture":calibrated ? "cpu-bidirectional-epipolar-zncc":"central-mutual-patches",
                 calibrated ? "true":"false",calibrated ? cal.source_sha256:"",anchors,
-                valid[0] ? "true":"false",valid[1] ? "true":"false",fits[0].confidence,fits[1].confidence,fits[0].inliers,fits[1].inliers,
-                fits[0].scale,fits[1].scale,fits[0].shift,fits[1].shift,fits[0].rms,fits[1].rms,
+                valid[0] ? "true":"false",valid[1] ? "true":"false",factor,scale_pair,record.sparse.scale_age_us/1000.,record.sparse.inliers,
                 processing_ms,(now_us()-started)/1000.0)>0;
             if(fclose(f) || !ok || rename(directory,final)) goto done;
             trace_end(&record.trace,timing,TS_FILES,TR_IO);
@@ -282,9 +306,11 @@ int main(int argc,char **argv)
         }
         record.end=now_us();
         record.main_cpu_us=trace_clock(CLOCK_THREAD_CPUTIME_ID)-cpu_start;
-        stereo_preview_publish(preview,&record,ring,images,pred,metrics,masks,valid,capture);
+        stereo_preview_publish(preview,&record,ring,eyes,pred,metrics,masks,valid,capture,
+                               matches,calibrated ? anchors:record.sparse.mutual);
         record.end=now_us(); record.main_cpu_us=trace_clock(CLOCK_THREAD_CPUTIME_ID)-cpu_start;
         if(record.trace.enabled) ring->pair[(ring->next+TRACE_RING-1)%TRACE_RING]=record;
+        if(dma && stereo_capture_release()) { perror("release camera buffers"); goto done; }
         continue;
 inference_error:
         record.end=now_us(); trace_ring_push(ring,&record);
@@ -294,10 +320,15 @@ inference_error:
     result=stop ? 1:0;
 done:
     stereo_preview_stop(preview);
-    stereo_capture_close();
     if(tx>=0) close(tx);
     if(rx>=0) close(rx);
-    if(child>0) { kill(child,SIGTERM); waitpid(child,NULL,0); }
+    if(child>0) {
+        int status;
+        pid_t waited;
+        do { waited=waitpid(child,&status,0); } while(waited<0 && errno==EINTR);
+        if(waited<0 || !WIFEXITED(status) || WEXITSTATUS(status)!=0) result=1;
+    }
+    stereo_capture_close();
     free(images); free(pred); free(metrics); free(masks); free(ring);
     return result;
 }

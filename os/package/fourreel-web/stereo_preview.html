@@ -1,13 +1,14 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>4reel stereo diagnostics</title>
-<style>body{font:15px system-ui;background:#101820;color:#e8eef3;max-width:1100px;margin:20px auto;padding:0 15px}button,input{font:inherit}button{padding:7px;margin-right:10px}small,.muted{color:#b6c6d0}h1{font-size:24px}h2{font-size:19px;margin-top:25px}#preview{image-rendering:pixelated;width:min(100%,640px);border:1px solid #71818c}#summary{line-height:1.7;white-space:pre-line}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:right;border-bottom:1px solid #384653;padding:5px}td:first-child,th:first-child{text-align:left}canvas{width:100%;height:245px;background:#192632}#warning{color:#ffd27f}pre{white-space:pre-wrap}a{color:#8edaff}</style>
-<h1>4reel · stereo depth</h1><p>Physical left / right. Native orientation preserved. One trigger ID for all four tiles.</p>
-<p><label><input id="refresh" type="checkbox" checked> Refresh preview and statistics at 1 Hz</label></p>
+<style>body{font:15px system-ui;background:#101820;color:#e8eef3;max-width:1100px;margin:20px auto;padding:0 15px}button,input{font:inherit}button{padding:7px;margin-right:10px}small,.muted{color:#b6c6d0}h1{font-size:24px}h2{font-size:19px;margin-top:25px}#preview{image-rendering:pixelated;width:min(100%,640px);border:1px solid #71818c}#summary{line-height:1.7;white-space:pre-line}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:right;border-bottom:1px solid #384653;padding:5px}td:first-child,th:first-child{text-align:left}#timeline{width:100%;height:245px;background:#192632}#warning{color:#ffd27f}pre{white-space:pre-wrap}a{color:#8edaff}.eyes{display:grid;grid-template-columns:1fr 1fr;gap:8px}.eyes canvas{rotate:180deg;display:block;width:100%;height:auto;background:#192632}.eyes figure{margin:0}.eyes figcaption{margin:.25em 0}.stream-info{color:#b6c6d0;font-variant-numeric:tabular-nums}.focus-pair{display:flex;flex-wrap:wrap;gap:16px}.focus-pair figure{margin:0}.focus-pair canvas{display:block;width:256px;max-width:100%;height:auto;image-rendering:pixelated}.depth-scale{max-width:540px;margin:12px 0}.depth-scale figcaption{margin-bottom:6px}.depth-bar{height:12px;border-radius:3px;background:linear-gradient(to right,#ff0000,#80ff7f,#0000ff)}.depth-ticks{position:relative;height:24px;font-size:12px;font-variant-numeric:tabular-nums}.depth-ticks span{position:absolute;transform:translateX(-50%)}.depth-ticks span:first-child{transform:none}.depth-ticks span:last-child{transform:translateX(-100%)}.depth-scale[data-active="false"] .depth-bar{opacity:.4}</style>
+<h1>4reel · stereo depth</h1><p>Synchronized stereo capture · ZipDepth on the board NPU</p>
+<p><label><input id="refresh" type="checkbox" checked> Show live images and timing updates</label></p>
 <p><button id="toggle">Turn diagnostics off</button><span id="mode">Connecting…</span></p>
 <p id="warning">Development image: no hardware accuracy or throughput certification. Waiting for a processed pair.</p>
-<div style="max-width:640px;display:flex;justify-content:space-around"><b>LEFT · module 1</b><b>RIGHT · module 0</b></div>
-<img id="preview" alt="Top: left and right mono images. Bottom: corresponding depth for the same trigger.">
-<p id="legend">Top: mono. Bottom: depth. Invalid pixels black; extrapolated metric support hatched grey. Relative colours are independently normalised per eye and have no metric scale. Metric colours use logarithmic 0.15 m (blue) to 20 m (red).</p>
-<div id="summary"></div>
+<h2>ZipDepth · every processed pair</h2><div class="eyes"><figure><figcaption>Left · 320 × 200 <span id="depthMode0"></span></figcaption><canvas id="depth0" width="320" height="200" aria-label="Left depth image"></canvas></figure><figure><figcaption>Right · 320 × 200 <span id="depthMode1"></span></figcaption><canvas id="depth1" width="320" height="200" aria-label="Right depth image"></canvas></figure></div><p class="stream-info" id="depthInfo">Waiting for images…</p><figure class="depth-scale" id="metricLegend" data-active="false"><figcaption><strong>Metric depth (m)</strong> · logarithmic scale <span id="legendEyes"></span></figcaption><div class="depth-bar"></div><div class="depth-ticks" id="metricTicks"></div></figure><small>Red is closer and blue is farther on both maps. Metric colours saturate below 0.30 m and above 20 m. Depth values use the full range.</small><h2>Grayscale · 1 Hz</h2><div class="eyes"><figure><figcaption>Left · 1280 × 800</figcaption><canvas id="gray0" width="1280" height="800" aria-label="Left gray image"></canvas></figure><figure><figcaption>Right · 1280 × 800</figcaption><canvas id="gray1" width="1280" height="800" aria-label="Right gray image"></canvas></figure></div><p class="stream-info" id="grayInfo">Waiting for images…</p><details id="lensFocus"><summary><strong>Lens focus · native-pixel crops</strong></summary>
+<p>Click the same printed detail in each grayscale image. Hold the target still at the intended working distance. Turn the lens in small steps and aim for the highest repeatable score on that eye. Allow three updates after each turn.</p>
+<div class="focus-pair"><figure><figcaption>Left · module 1</figcaption><canvas id="focus0" width="256" height="160" aria-label="Left focus crop"></canvas><output id="focusInfo0">Waiting for grayscale</output></figure>
+<figure><figcaption>Right · module 0</figcaption><canvas id="focus1" width="256" height="160" aria-label="Right focus crop"></canvas><output id="focusInfo1">Waiting for grayscale</output></figure></div>
+<p><button id="resetFocus">Reset focus peaks</button></p></details><h2>Pipeline timings · 1 Hz</h2><p id="exposure"></p><p id="stereo"></p><div id="summary"></div>
 <h2>Overlapping host timeline</h2><small>CPU lanes show elapsed scopes, not continuous CPU execution. RGA/NPU lanes show synchronous API entry→return (submit + wait + completion); internal phases and hardware counters are unavailable. RVE is unused. Queue waits are host observations.</small>
 <canvas id="timeline" width="1060" height="245"></canvas><p id="bottleneck"></p>
 <h2>Displayed pair and rolling window</h2><p id="window"></p>
@@ -18,34 +19,200 @@
 'use strict';
 const el=id=>document.getElementById(id); let last=null,busy=false,enabled=true;
 const fmt=x=>x===null?'unavailable':Number(x).toFixed(2);
-const resources=['CPU main','CPU helper','RGA call','NPU call','Host wait','File I/O','Capture envelope','RVE unavailable'];
+const resources=['CPU main','CPU helper','RGA call','NPU call','Host wait','File I/O','Capture envelope','CPU main · stereo'];
+function stereoEvent(d,e){return /^(sparse |central |stereo |(left|right) (robust fit|map generation))/.test(d.stages[e.stage].name)}
+function lane(d,e){return stereoEvent(d,e)?7:e.resource}
 function timeline(d){const c=el('timeline'),g=c.getContext('2d'),span=Math.max(d.pair_ms,...d.events.map(e=>e.end_ms),1);g.clearRect(0,0,c.width,c.height);g.font='12px system-ui';
  resources.forEach((r,i)=>{g.fillStyle='#cfdae2';g.fillText(r,4,22+i*26);g.strokeStyle='#354552';g.beginPath();g.moveTo(145,26+i*26);g.lineTo(c.width,26+i*26);g.stroke()});
- for(const e of d.events){g.fillStyle=['#68c4c4','#d3ae79','#9ba7ff','#ea92d5','#8499ab','#b2cc80','#586779'][e.resource];g.fillRect(145+e.start_ms/span*900,10+e.resource*26,Math.max(1,(e.end_ms-e.start_ms)/span*900),15)}
+ for(const e of d.events){g.fillStyle=['#68c4c4','#d3ae79','#9ba7ff','#ea92d5','#8499ab','#b2cc80','#586779','#77d68a'][lane(d,e)];g.fillRect(145+e.start_ms/span*900,10+lane(d,e)*26,Math.max(1,(e.end_ms-e.start_ms)/span*900),15)}
  g.fillStyle='#cfdae2';g.fillText('0 ms',145,239);g.fillText(fmt(span)+' ms',970,239);
- c.onmousemove=ev=>{const x=(ev.clientX-c.getBoundingClientRect().left)/c.getBoundingClientRect().width*c.width,y=(ev.clientY-c.getBoundingClientRect().top)/c.getBoundingClientRect().height*c.height,lane=Math.floor((y-10)/26),t=(x-145)/900*span; c.title=d.events.filter(e=>e.resource===lane&&e.start_ms<=t&&e.end_ms>=t).map(e=>d.stages[e.stage].name+': '+fmt(e.end_ms-e.start_ms)+' ms').join('\n')};
+ c.onmousemove=ev=>{const x=(ev.clientX-c.getBoundingClientRect().left)/c.getBoundingClientRect().width*c.width,y=(ev.clientY-c.getBoundingClientRect().top)/c.getBoundingClientRect().height*c.height,row=Math.floor((y-10)/26),t=(x-145)/900*span; c.title=d.events.filter(e=>lane(d,e)===row&&e.start_ms<=t&&e.end_ms>=t).map(e=>d.stages[e.stage].name+': '+fmt(e.end_ms-e.start_ms)+' ms').join('\n')};
 }
-function update(d){enabled=d.enabled;el('toggle').textContent=enabled?'Turn diagnostics off':'Turn diagnostics on';el('mode').textContent=enabled?'Diagnostics on · requested at 1 Hz':'Diagnostics off · pipeline continues';
+function update(d){enabled=d.enabled;el('toggle').textContent=enabled?'Turn diagnostics off':'Turn diagnostics on';el('mode').textContent=enabled?'Timing diagnostics on':'Diagnostics off · pipeline continues';
  el('overhead').textContent=JSON.stringify({diagnostic_work:d.diagnostic_work,on_off_comparison:d.modes},null,2);
  if(!d.ready){el('warning').textContent=d.enabled?'Waiting for the next completed pair. Preview requests never delay capture.':'Diagnostics off. The last displayed image is frozen; capture and inference continue.';return}
- last=d;if(d.bmp)el('preview').src=d.bmp;
- el('warning').textContent='Trigger '+d.pair_id+' · '+(enabled?'live snapshot':'last snapshot, frozen while off')+' · left '+(d.capture_only?'calibration capture':d.metric_valid[0]?'metric estimator accepted':'relative only')+' · right '+(d.capture_only?'calibration capture':d.metric_valid[1]?'metric estimator accepted':'relative only')+'. Hardware accuracy remains unvalidated.';
+ last=d;
+ el('warning').textContent='Timing sample '+d.pair_id+' · '+(enabled?'live snapshot':'last snapshot, frozen while off')+' · left '+(d.capture_only?'calibration capture':d.metric_valid[0]?'scaled in metres':'relative only')+' · right '+(d.capture_only?'calibration capture':d.metric_valid[1]?'scaled in metres':'relative only')+'. Hardware accuracy remains unvalidated.';
  el('summary').textContent='Pair work '+fmt(d.pair_ms)+' ms · rolling throughput '+fmt(d.rolling_pairs_s)+' pairs/s · input age at server '+fmt(d.input_age_ms)+' ms\n'+
  'From PWM command: first eye dequeued '+fmt(d.first_capture_ms)+' ms; both dequeued '+fmt(d.complete_capture_ms)+' ms; first depth ready '+fmt(d.first_eye_ms)+' ms; both depths ready '+fmt(d.complete_inference_ms)+' ms\n'+
  'Main CPU '+fmt(d.main_cpu_ms)+' ms · helper CPU '+fmt(d.helper_cpu_ms)+' ms · submit pipe poll wait '+fmt(d.submit_queue_wait_ms)+' ms · response pipe poll wait '+fmt(d.receive_wait_ms)+' ms\n'+
  'Observed V4L2 sequence gaps left/right '+d.sequence_gaps.join('/')+' · rolling '+d.rolling_sequence_gaps.join('/')+' · skipped preview snapshots '+d.snapshot_skips+' · trace overflow '+d.trace_overflow;
+ const ae=d.auto_exposure;
+ el('exposure').textContent=ae?.enabled?'Paired auto-exposure · '+ae.lines+' lines · analogue gain '+(ae.gain/16).toFixed(2)+'× · L/R brightness (75th percentile) '+ae.p75.join('/')+' of 255 · clipped '+ae.clipped_pct.map(v=>v.toFixed(1)+'%').join(' / '):'';
+ if(d.stereo){
+  const s=d.stereo, work=d.events.filter(e=>stereoEvent(d,e)), npu=d.events.filter(e=>e.resource===3);
+  let concurrent=0; for(const a of work)for(const b of npu)concurrent+=Math.max(0,Math.min(a.end_ms,b.end_ms)-Math.max(a.start_ms,b.start_ms));
+  const elapsed=work.reduce((sum,e)=>sum+e.end_ms-e.start_ms,0);
+  el('stereo').textContent=s.mode==='off'?'Calibration capture':(s.mode==='calibrated'?'Calibrated stereo':'Image-space stereo · unit calibration needed for metres')+
+   ' · '+s.candidates+ (s.mode==='calibrated'?' right candidates → ':' left candidates → ')+s.forward+' forward → '+s.mutual+' validated'+
+   (s.mode==='calibrated'?' → '+s.anchors+' triangulated · '+s.scale_inliers+' points supporting a new scale':'')+
+   ' · '+fmt(elapsed)+' ms of stereo stages · '+fmt(concurrent)+' ms concurrent with NPU calls';
+ }
  timeline(d);el('window').textContent=d.rolling_pairs+' of at most 64 processed pairs. Missing/disabled stages show “—”, not zero measurements. Stage percentiles sum repeated calls only within that stage; never sum rows to estimate throughput.';
  el('stages').replaceChildren(...d.stages.map(s=>{const tr=document.createElement('tr');for(const v of [s.name,s.calls?fmt(s.ms):'—',s.calls?fmt(s.cpu_ms):'—',s.samples?fmt(s.p50_ms):'—',s.samples?fmt(s.p95_ms):'—',s.samples]){const td=document.createElement('td');td.textContent=v;tr.append(td)}return tr}));
  const occupancy=d.host_call_occupancy_ms.map((v,i)=>resources[i]+': '+fmt(v)+' ms ('+fmt(100*v/Math.max(1,d.pair_ms))+'%)').join('; ');
  const receive=d.events.filter(e=>d.stages[e.stage].name==='helper receive/wait');let overlap=0;
  for(const a of receive)for(const b of d.events.filter(e=>e.resource===3))overlap+=Math.max(0,Math.min(a.end_ms,b.end_ms)-Math.max(a.start_ms,b.start_ms));
  let evidence='No queued pair backlog: next trigger waits for completion. ';
+ const leftNpu=d.events.find(e=>d.stages[e.stage].name==='left NPU synchronous call');
+ const rightRga=d.events.filter(e=>d.stages[e.stage].name==='right RGA synchronous call');
+ if(leftNpu && rightRga.length){
+  const concurrent=rightRga.reduce((sum,e)=>sum+Math.max(0,Math.min(e.end_ms,leftNpu.end_ms)-Math.max(e.start_ms,leftNpu.start_ms)),0);
+  const duration=rightRga.reduce((sum,e)=>sum+e.end_ms-e.start_ms,0);
+  evidence+='Right-eye RGA overlapped left-eye NPU for '+fmt(concurrent)+' of '+fmt(duration)+' ms. ';
+ }
  if(overlap>0)evidence+='Response wait overlaps the NPU API call for '+fmt(overlap)+' ms: helper completion is a critical-path candidate; this does not prove device saturation. ';
  if(d.main_cpu_ms>d.pair_ms*.7)evidence+='Main thread used over 70% of pair wall time: CPU work is a candidate. ';
  evidence+='Submit pipe waits '+fmt(d.submit_queue_wait_ms)+' ms provide IPC/backpressure evidence, including poll overhead. Sensor losses not visible in V4L2 sequence numbers are unknown. ';
  el('bottleneck').textContent=evidence+'Interval-union host occupancy (overlap retained): '+occupancy+'. Hardware busy counters and internal submit/wait splits unavailable; no summed-stage bottleneck claim.';
 }
-async function poll(){if(busy||!el('refresh').checked)return;busy=true;try{const r=await fetch('/api/frame',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);update(await r.json())}catch(e){el('mode').textContent='Disconnected: '+e.message}finally{busy=false}}
+async function poll(){if(busy||!el('refresh').checked)return;busy=true;try{const r=await fetch('/api/stats',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);update(await r.json())}catch(e){el('mode').textContent='Disconnected: '+e.message}finally{busy=false}}
 el('toggle').onclick=async()=>{try{await fetch('/api/diagnostics/'+(enabled?'off':'on'),{method:'POST'});await poll()}catch(e){el('mode').textContent=e.message}};
-setInterval(poll,1000);poll();
+const views = {
+ depth: {width:320,height:200,id:'0',times:[],skips:0},
+ gray: {width:1280,height:800,id:'0',times:[],skips:0}
+};
+const grayPalette = Uint32Array.from({length:256}, (_,v)=>(0xff000000 | v<<16 | v<<8 | v)>>>0);
+const depthPalette = Uint32Array.from({length:256}, (_,v)=>(0xff000000 | (255-v)<<16 | (255-Math.abs(255-2*v))<<8 | v)>>>0);
+const minMetricZ=.30,maxMetricZ=20;
+function metricFraction(z){return Math.log(Math.max(minMetricZ,z)/minMetricZ)/Math.log(maxMetricZ/minMetricZ)}
+for(const z of [minMetricZ,.5,1,2,5,10,maxMetricZ]){
+ const tick=document.createElement('span');tick.textContent=String(z);
+ tick.style.left=(100*metricFraction(z))+'%';el('metricTicks').append(tick);
+}
+function showDepthUnits(flags){
+ for(let eye=0;eye<2;eye++) el('depthMode'+eye).textContent=(flags&(1<<eye))?'· Metric (m)':'· Relative';
+ el('metricLegend').dataset.active=String(flags!==0);
+ el('legendEyes').textContent=['· inactive for this pair','· left eye','· right eye','· both eyes'][flags];
+}
+// Crop and measure the exact gray frame in display coordinates, before match overlays.
+const focusEyes=[0,1].map(()=>({x:640,y:400,history:[],best:0}));
+function clearFocus(e){focusEyes[e].history=[];focusEyes[e].best=0}
+el('resetFocus').onclick=()=>{clearFocus(0);clearFocus(1)};
+for(let eye=0;eye<2;eye++) el('gray'+eye).onclick=ev=>{
+ const r=ev.currentTarget.getBoundingClientRect(), f=focusEyes[eye];
+ f.x=Math.round(Math.max(128,Math.min(1152,(ev.clientX-r.left)*1280/r.width)));
+ f.y=Math.round(Math.max(80,Math.min(720,(ev.clientY-r.top)*800/r.height)));
+ clearFocus(eye);
+};
+function focusCrop(eye,input,flip,overview) {
+ const f=focusEyes[eye], c=el('focus'+eye), ctx=c.getContext('2d');
+ const w=c.width,h=c.height,x0=f.x-w/2,y0=f.y-h/2;
+ const pixels=c.framePixels??=ctx.createImageData(w,h), rgba=new Uint32Array(pixels.data.buffer);
+ const crop=c.grayValues??=new Uint8Array(w*h);
+ let clipped=0, near=0, far=0;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const ix=flip?x0+x:1279-x0-x, iy=799-y0-y, i=y*w+x, v=input[eye*1280*800+iy*1280+ix];
+  crop[i]=v; rgba[i]=grayPalette[v]; if(v<=3 || v>=252)clipped++;
+ }
+ for(let y=2;y<h-2;y+=2)for(let x=2;x<w-2;x+=2){
+  const i=y*w+x;
+  near+=(crop[i+1]-crop[i-1])**2+(crop[i+w]-crop[i-w])**2;
+  far+=(crop[i+2]-crop[i-2])**2+(crop[i+2*w]-crop[i-2*w])**2;
+ }
+ ctx.putImageData(pixels,0,0);
+ overview.strokeStyle='#6be4ff';overview.lineWidth=3;
+ overview.strokeRect(flip?x0:1280-x0-w,800-y0-h,w,h);
+ let status;
+ if(far<24*w*h || clipped>w*h*.20){f.history=[];status='Choose a detailed, evenly lit patch'}
+ else {
+  const score=100*Math.sqrt(near/far);
+  f.history.push(score);if(f.history.length>3)f.history.shift();
+  const smooth=f.history.slice().sort((a,b)=>a-b)[Math.floor(f.history.length/2)];
+  if(f.history.length===3) f.best=Math.max(f.best,smooth);
+  status='Sharpness '+smooth.toFixed(1)+' · best '+(f.best?f.best.toFixed(1):'…');
+ }
+ el('focusInfo'+eye).textContent=status;
+}
+
+function drawEyes(kind, buffer, flags, flip, matches=[], depths=[]) {
+ const v=views[kind], count=v.width*v.height, metric=kind==='depth' && flags!==0;
+ const expected=count*(kind==='gray'?2:8)+(metric?2*count:0);
+ if(buffer.byteLength!==expected) throw Error('Incomplete image pair');
+ const input=kind==='gray'?new Uint8Array(buffer):new Float32Array(buffer,0,2*count);
+ const mask=metric?new Uint8Array(buffer,count*8):null;
+ for(let eye=0;eye<2;eye++) {
+  const canvas=el(kind+eye),context=canvas.getContext('2d');
+  if(kind==='gray') canvas.style.transform=flip?'scaleX(-1)':'';
+  const pixels=canvas.framePixels??=context.createImageData(v.width,v.height);
+  const out=new Uint32Array(pixels.data.buffer), offset=eye*count;
+  if(kind==='gray') {
+   for(let i=0;i<count;i++) out[i]=grayPalette[input[offset+i]];
+  } else {
+   const scaled=(flags&(1<<eye))!==0;
+   let lo=Infinity,hi=-Infinity;
+   if(!scaled) for(let i=0;i<count;i++) {
+    const d=input[offset+i]; if(Number.isFinite(d)){if(d<lo)lo=d;if(d>hi)hi=d;}
+   }
+   const scale=255/Math.max(hi-lo,1e-9);
+   for(let i=0;i<count;i++){
+    const d=input[offset+i],s=scaled?mask[offset+i]:1;
+    if(!Number.isFinite(d)||!s||(scaled&&d<=0)) {out[i]=0xff000000;continue}
+    const index=scaled?255*(1-metricFraction(d)):(d-lo)*scale;
+    out[i]=depthPalette[Math.max(0,Math.min(255,Math.round(index)))];
+   }
+  }
+  context.putImageData(pixels,0,0);
+  if(kind==='depth' && eye===1) showDepthUnits(flags);
+  if(kind==='gray' && el('lensFocus').open) focusCrop(eye,input,flip,context);
+  if(kind==='gray') matches.forEach((point,i)=>{
+   const x=flip?v.width-1-point[eye*2]:point[eye*2], y=point[eye*2+1];
+   context.strokeStyle='hsl('+((i*137)%360)+' 95% 65%)';context.lineWidth=3;
+   context.beginPath();context.arc(x,y,8,0,2*Math.PI);context.stroke();
+   const z=depths[i]?.[eye];
+   if(z>0) {
+    context.save();
+    context.translate(x,y);
+    // Undo the display rotation and optional horizontal mirror for lettering.
+    context.scale(flip?1:-1,-1);
+    context.font='bold 25px system-ui';context.lineJoin='round';context.lineWidth=5;
+    const label=(z/1000).toFixed(2)+' m';
+    context.strokeStyle='#111';context.strokeText(label,11,-6);
+    context.fillStyle='#fff';context.fillText(label,11,-6);
+    context.restore();
+   }
+  });
+ }
+}
+function scaleDescription(headers,id,flags){
+ const source=headers.get('X-Scale-Source-Pair'),factor=Number(headers.get('X-Stereo-Scale'));
+ if(!source || source==='0' || !(factor>0)) return 'Relative depth · waiting for first stereo scale';
+ const age=Number(headers.get('X-Scale-Age-Ms'))/1000;
+ const state=source===id?'fresh':('held · '+age.toFixed(1)+' s old');
+ const units=flags===3?'Metric depth':flags===0?'Relative depth':'One metric eye';
+ return units+' · scale '+factor.toPrecision(4)+' · '+state;
+}
+async function receiveImages(kind) {
+ const v=views[kind]; let delay=kind==='gray'?125:45;
+ try {
+  if(el('refresh').checked&&enabled&&!document.hidden){
+   const res=await fetch('/api/'+kind+(kind==='gray'?'?native=1&after=':'?after=')+v.id,{cache:'no-store'});
+   if(res.status!==204) {
+    if(!res.ok) throw Error('HTTP '+res.status);
+    const id=res.headers.get('X-Pair-Id'),flags=Number(res.headers.get('X-Metric-Eyes'));
+    if(!id||!/^\d+$/.test(id)) throw Error('Missing pair ID');
+    const bytes=await res.arrayBuffer();
+    if(enabled&&el('refresh').checked){
+     const points=res.headers.get('X-Stereo-Matches');
+     const matches=points?points.trim().split(/\s+/).map(s=>s.split(',').map(Number)):[];
+     const z=res.headers.get('X-Stereo-Z-mm');
+     const depths=z?z.trim().split(/\s+/).map(pair=>pair.split(',').map(Number)):[];
+     drawEyes(kind,bytes,flags,res.headers.get('X-Horizontal-Flip')==='1',matches,depths.length===matches.length?depths:[]);
+     if(v.id!=='0'&&kind==='depth'){
+      const gap=BigInt(id)-BigInt(v.id)-1n;
+      if(gap<0n){v.skips=0;v.times=[]} else v.skips+=Number(gap);
+     }
+     const now=performance.now();v.times.push(now);if(v.times.length>24)v.times.shift();
+     const hz=v.times.length>1?(1000*(v.times.length-1)/(now-v.times[0])).toFixed(2)+' Hz':'measuring';
+     v.id=id;
+     el(kind+'Info').textContent='Pair '+id+' · '+hz+(kind==='depth'?' · '+v.skips+' skipped in viewer · '+scaleDescription(res.headers,id,flags):' · '+matches.length+' matching points · same colour in both eyes · labels show stereo depth along each camera’s optical axis (m)');
+     delay=kind==='gray'?650:55;
+    }
+   }
+  } else {delay=300;v.times=[];v.id='0';v.skips=0}
+ }catch(e){el(kind+'Info').textContent='Stream interrupted · '+e.message;delay=400}
+ setTimeout(()=>receiveImages(kind),delay);
+}
+
+setInterval(poll,1000);poll();receiveImages('depth');receiveImages('gray');
 </script></html>

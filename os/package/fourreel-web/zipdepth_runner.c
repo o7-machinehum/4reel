@@ -6,6 +6,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +50,121 @@ static int write_all(int fd,const void *p,size_t n)
     return 0;
 }
 
+/* In DMA mode the capture process retains both buffers until this response.
+ * Only the main thread accesses the RKNN context or its bound input/output.
+ * The worker's RGA destination and padded staging are independent of those. */
+struct EyePrep {
+    int fd;
+    unsigned stride;
+    rknn_tensor_mem *mirror;
+    unsigned eye;
+    rknn_tensor_mem *small;
+    uint8_t *tensor;
+    unsigned tensor_stride;
+    unsigned tensor_bytes;
+    struct Trace trace;
+};
+
+static int prepare_eye(struct EyePrep *p)
+{
+    unsigned offset=p->eye ? TS_SOURCE_R-TS_SOURCE_L:0;
+    struct TraceMark m=trace_begin(&p->trace);
+    rga_buffer_t src=wrapbuffer_fd_t(p->fd,1280,800,p->stride,800,RK_FORMAT_YCbCr_400);
+    rga_buffer_t dst=wrapbuffer_fd_t(p->small->fd,W,200,W,200,RK_FORMAT_YCbCr_400);
+    trace_end(&p->trace,m,TS_SOURCE_L+offset,TR_HELPER);
+    m=trace_begin(&p->trace);
+    /* Mirroring after reduction or fusing flip/scale changes the sampling
+     * phase on RGA2e. Mirror the native plane first to preserve the model input. */
+    if(p->mirror) {
+        rga_buffer_t tmp=wrapbuffer_fd_t(p->mirror->fd,1280,800,1280,800,RK_FORMAT_YCbCr_400);
+        IM_STATUS flipped=imflip(src,tmp,IM_HAL_TRANSFORM_FLIP_H,1);
+        if(flipped!=IM_STATUS_SUCCESS) {
+            fprintf(stderr,"RGA eye %u native mirror failed: %s\n",p->eye,imStrError(flipped));
+            return -1;
+        }
+        trace_end(&p->trace,m,TS_RGA_L+offset,TR_RGA);
+        m=trace_begin(&p->trace);
+        src=tmp;
+    }
+    IM_STATUS status=imresize_t(src,dst,0,0,IM_INTERP_AVERAGE,1);
+    if(status!=IM_STATUS_SUCCESS) {
+        fprintf(stderr,"RGA eye %u gray resize failed: %s\n",p->eye,imStrError(status));
+        return -1;
+    }
+    trace_end(&p->trace,m,TS_RGA_L+offset,TR_RGA);
+    m=trace_begin(&p->trace);
+    if(cpu_access(p->small,DMA_BUF_SYNC_START|DMA_BUF_SYNC_READ)) return -1;
+    memset(p->tensor,0,p->tensor_bytes);
+    for(unsigned y=0;y<200;++y) {
+        uint8_t *d=p->tensor+(y+12)*p->tensor_stride;
+        const uint8_t *s=(const uint8_t *)p->small->virt_addr+y*W;
+        memcpy(d,s,W);
+    }
+    if(cpu_access(p->small,DMA_BUF_SYNC_END|DMA_BUF_SYNC_READ)) return -1;
+    trace_end(&p->trace,m,TS_TENSOR_L+offset,TR_HELPER);
+    return 0;
+}
+
+static void append_trace(struct Trace *dest,const struct Trace *src)
+{
+    for(unsigned i=0;i<src->count;++i) {
+        if(dest->count<TRACE_EVENTS) dest->event[dest->count++]=src->event[i];
+        else ++dest->overflow;
+    }
+    dest->overflow+=src->overflow;
+}
+
+static int infer_eye(rknn_context ctx,rknn_tensor_mem *out,unsigned stride,float *prediction,
+                     unsigned eye,struct Trace *t)
+{
+    unsigned offset=eye ? TS_SOURCE_R-TS_SOURCE_L:0;
+    struct TraceMark m=trace_begin(t);
+    if(rknn_run(ctx,NULL)) return -1;
+    trace_end(t,m,TS_NPU_L+offset,TR_NPU);
+    m=trace_begin(t);
+    for(unsigned y=0;y<H;++y)
+        memcpy(prediction+y*W,(float *)out->virt_addr+y*stride,W*sizeof(float));
+    for(unsigned i=0;i<W*H;++i) if(!isfinite(prediction[i])) return -1;
+    trace_end(t,m,TS_OUTPUT_L+offset,TR_HELPER);
+    return 0;
+}
+
+struct PrepWorker {
+    struct EyePrep prep;
+    pthread_t tid;
+    sem_t request,done;
+    uint64_t cpu;
+    int stop,ret,started;
+};
+static void wait_sem(sem_t *s)
+{
+    while(sem_wait(s)<0 && errno==EINTR) {}
+}
+static void *prep_loop(void *arg)
+{
+    struct PrepWorker *w=arg;
+    for(;;) {
+        wait_sem(&w->request);
+        if(w->stop) break;
+        uint64_t begin=trace_clock(CLOCK_THREAD_CPUTIME_ID);
+        w->ret=prepare_eye(&w->prep);
+        w->cpu=trace_clock(CLOCK_THREAD_CPUTIME_ID)-begin;
+        sem_post(&w->done);
+    }
+    return NULL;
+}
+static int start_worker(struct PrepWorker *w)
+{
+    if(sem_init(&w->request,0,0)) return -1;
+    if(sem_init(&w->done,0,0)) { sem_destroy(&w->request); return -1; }
+    if(pthread_create(&w->tid,NULL,prep_loop,w)) {
+        sem_destroy(&w->request); sem_destroy(&w->done);
+        return -1;
+    }
+    w->started=1;
+    return 0;
+}
+
 int main(int argc,char **argv)
 {
     if(argc!=2) { fprintf(stderr,"Usage: zipdepth-runner model.rknn < requests > responses\n"); return 2; }
@@ -55,7 +172,9 @@ int main(int argc,char **argv)
     if(protocol<0 || dup2(STDERR_FILENO,STDOUT_FILENO)<0) return 1;
     rknn_context ctx=0;
     rknn_tensor_mem *in=NULL,*out=NULL,*rga_src=NULL,*rga_dst=NULL;
-    uint8_t *native=NULL;
+    uint8_t *native=NULL,*right_tensor=NULL;
+    rknn_tensor_mem *right_dst=NULL;
+    struct PrepWorker worker={0};
     int result=1;
     /* Model-path initialization avoids holding an extra 6.5 MB userspace copy. */
     if(rknn_init(&ctx,argv[1],0,0,NULL)!=RKNN_SUCC) goto done;
@@ -88,56 +207,78 @@ int main(int argc,char **argv)
     if(!in || !out || rknn_set_io_mem(ctx,in,&ia) || rknn_set_io_mem(ctx,out,&oa)) goto done;
     rga_src=rknn_create_mem(ctx,RAW_BYTES);
     rga_dst=rknn_create_mem(ctx,W*200);
-    native=malloc(2*RAW_BYTES);
-    if(!rga_src || !rga_dst || !native || rga_src->fd<0 || rga_dst->fd<0) goto done;
-    rga_buffer_t src=wrapbuffer_fd_t(rga_src->fd,1280,800,1280,800,RK_FORMAT_YCbCr_400);
-    rga_buffer_t dst=wrapbuffer_fd_t(rga_dst->fd,W,200,W,200,RK_FORMAT_YCbCr_400);
+    if(!rga_src || rga_src->fd<0 || !rga_dst || rga_dst->fd<0) goto done;
     fprintf(stderr,"RKNN input stride=%u bytes=%u output stride=%u bytes=%u; shared context\n",is,ibytes,os,obytes);
     float predictions[2][W*H];
     struct RunnerRequest request;
     while(!read_all(STDIN_FILENO,&request,sizeof(request))) {
-        if(request.protocol!=TRACE_PROTOCOL) goto done;
         struct RunnerResponse response={.id=request.id,.trace={.enabled=request.enabled}};
         uint64_t thread_start=trace_clock(CLOCK_THREAD_CPUTIME_ID);
-        if(read_all(STDIN_FILENO,native,2*RAW_BYTES)) goto done;
-        for(unsigned eye=0;eye<2;++eye) {
-            unsigned offset=eye ? TS_SOURCE_R-TS_SOURCE_L:0;
-            struct TraceMark m=trace_begin(&response.trace);
-            if(cpu_access(rga_src,DMA_BUF_SYNC_START|DMA_BUF_SYNC_WRITE)) goto done;
-            memcpy(rga_src->virt_addr,native+eye*RAW_BYTES,RAW_BYTES);
-            if(cpu_access(rga_src,DMA_BUF_SYNC_END|DMA_BUF_SYNC_WRITE)) goto done;
-            trace_end(&response.trace,m,TS_SOURCE_L+offset,TR_HELPER);
-            m=trace_begin(&response.trace);
-            if(imresize_t(src,dst,0,0,IM_INTERP_AVERAGE,1)!=IM_STATUS_SUCCESS) {
-                fprintf(stderr,"RGA native gray resize failed; no silent CPU substitution\n"); goto done;
+        struct EyePrep p={.small=rga_dst,.tensor=in->virt_addr,.tensor_stride=is,.tensor_bytes=ibytes};
+        if(request.protocol==TRACE_DMA_PROTOCOL) {
+            struct RunnerDmaPair pair;
+            if(read_all(STDIN_FILENO,&pair,sizeof(pair))) goto done;
+            for(unsigned e=0;e<2;++e) {
+                if(pair.fd[e]<3 || pair.stride[e]<1280 || pair.stride[e]>8192) goto done;
             }
-            trace_end(&response.trace,m,TS_RGA_L+offset,TR_RGA);
-            m=trace_begin(&response.trace);
-            if(cpu_access(rga_dst,DMA_BUF_SYNC_START|DMA_BUF_SYNC_READ)) goto done;
-            memset(in->virt_addr,0,ibytes);
-            for(unsigned y=0;y<200;++y)
-                memcpy((uint8_t *)in->virt_addr+(y+12)*is,(uint8_t *)rga_dst->virt_addr+y*W,W);
-            if(cpu_access(rga_dst,DMA_BUF_SYNC_END|DMA_BUF_SYNC_READ)) goto done;
-            /* Default rknn_run synchronizes bound input/output caches. Neither
-             * RKNN_FLAG_DISABLE_FLUSH_* flag is set. rknn_run is synchronous.
-             */
-            trace_end(&response.trace,m,TS_TENSOR_L+offset,TR_HELPER);
-            m=trace_begin(&response.trace);
-            if(rknn_run(ctx,NULL)) goto done;
-            trace_end(&response.trace,m,TS_NPU_L+offset,TR_NPU);
-            m=trace_begin(&response.trace);
-            for(unsigned y=0;y<H;++y) memcpy(predictions[eye]+y*W,(float *)out->virt_addr+y*os,W*4);
-            for(unsigned i=0;i<W*H;++i) if(!isfinite(predictions[eye][i])) goto done;
-            trace_end(&response.trace,m,TS_OUTPUT_L+offset,TR_HELPER);
-            if(!eye) response.first_eye_us=trace_clock(CLOCK_MONOTONIC);
-        }
+            if(!worker.started) {
+                right_dst=rknn_create_mem(ctx,W*200);
+                right_tensor=malloc(ibytes);
+                if(!right_dst || right_dst->fd<0 || !right_tensor || start_worker(&worker)) goto done;
+            }
+            p.mirror=rga_src;
+            p.fd=pair.fd[0]; p.stride=pair.stride[0]; p.trace.enabled=request.enabled;
+            if(prepare_eye(&p)) goto done;
+            append_trace(&response.trace,&p.trace);
+            worker.prep=(struct EyePrep){.eye=1,.mirror=rga_src,.fd=pair.fd[1],.stride=pair.stride[1],
+                .small=right_dst,.tensor=right_tensor,.tensor_stride=is,.tensor_bytes=ibytes,
+                .trace={.enabled=request.enabled}};
+            sem_post(&worker.request);
+            int ret=infer_eye(ctx,out,os,predictions[0],0,&response.trace);
+            response.first_eye_us=trace_clock(CLOCK_MONOTONIC);
+            /* Join the in-flight right preparation even if left inference failed. */
+            wait_sem(&worker.done);
+            if(ret || worker.ret) goto done;
+            response.cpu_us=worker.cpu;
+            append_trace(&response.trace,&worker.prep.trace);
+            struct TraceMark m=trace_begin(&response.trace);
+            memcpy(in->virt_addr,right_tensor,ibytes);
+            trace_end(&response.trace,m,TS_TENSOR_R,TR_HELPER);
+            if(infer_eye(ctx,out,os,predictions[1],1,&response.trace)) goto done;
+        } else if(request.protocol==TRACE_PROTOCOL) {
+            if(!native) {
+                native=malloc(2*RAW_BYTES);
+                if(!native) goto done;
+            }
+            if(read_all(STDIN_FILENO,native,2*RAW_BYTES)) goto done;
+            for(unsigned eye=0;eye<2;++eye) {
+                struct TraceMark m=trace_begin(&response.trace);
+                if(cpu_access(rga_src,DMA_BUF_SYNC_START|DMA_BUF_SYNC_WRITE)) goto done;
+                memcpy(rga_src->virt_addr,native+eye*RAW_BYTES,RAW_BYTES);
+                if(cpu_access(rga_src,DMA_BUF_SYNC_END|DMA_BUF_SYNC_WRITE)) goto done;
+                trace_end(&response.trace,m,eye ? TS_SOURCE_R:TS_SOURCE_L,TR_HELPER);
+                p.fd=rga_src->fd; p.stride=1280; p.eye=eye;
+                p.trace=(struct Trace){.enabled=request.enabled};
+                if(prepare_eye(&p)) goto done;
+                append_trace(&response.trace,&p.trace);
+                if(infer_eye(ctx,out,os,predictions[eye],eye,&response.trace)) goto done;
+                if(!eye) response.first_eye_us=trace_clock(CLOCK_MONOTONIC);
+            }
+        } else goto done;
         response.complete_us=trace_clock(CLOCK_MONOTONIC);
-        response.cpu_us=trace_clock(CLOCK_THREAD_CPUTIME_ID)-thread_start;
+        response.cpu_us+=trace_clock(CLOCK_THREAD_CPUTIME_ID)-thread_start;
         if(write_all(protocol,&response,sizeof(response)) || write_all(protocol,predictions,sizeof(predictions))) goto done;
     }
     result=0;
 done:
     if(result) fprintf(stderr,"ZipDepth inference unavailable; no synthetic/fallback prediction emitted\n");
+    if(worker.started) {
+        worker.stop=1; sem_post(&worker.request);
+        pthread_join(worker.tid,NULL);
+        sem_destroy(&worker.request); sem_destroy(&worker.done);
+    }
+    free(right_tensor);
+    if(right_dst) rknn_destroy_mem(ctx,right_dst);
     if(in) rknn_destroy_mem(ctx,in);
     if(out) rknn_destroy_mem(ctx,out);
     if(rga_src) rknn_destroy_mem(ctx,rga_src);

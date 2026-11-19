@@ -8,44 +8,43 @@
 #define TENSOR_W 320
 #define TENSOR_H 224
 #define TENSOR_PAD 12
-#define STEREO_MAX_ANCHORS 128
+#define STEREO_MAX_ANCHORS 20
 
 /* Kalibr ds: xi, alpha, fx, fy, cx, cy. Pixel centres at integer coordinates.
  * R,t map physical LEFT camera coordinates to RIGHT, t in metres.
  * Coordinates: +x image right, +y down, +z optical forward.
  */
-struct DsCamera { double p[6]; };
+/* Logical pixel (0,0) in camera/calibration orientation. DMA capture rows
+ * may have padding and a negative horizontal step. */
+struct StereoImage {
+    const uint8_t *origin;
+    int stride, xstep;
+};
+
+struct CameraModel {
+    double p[6]; /* xi, alpha (DS only), fx, fy, cx, cy */
+    double distortion[4]; /* pinhole-radtan k1, k2, p1, p2 */
+    int pinhole;
+};
 struct StereoCalibration {
-    struct DsCamera eye[2];
+    struct CameraModel eye[2];
     double R[9], t[3];
     char unit[64], source_sha256[65];
 };
-struct StereoAnchor { double x, y, prediction, inverse_z, weight; };
-struct StereoFit {
-    double scale, shift, rms, confidence;
-    double min_prediction, max_prediction;
-    unsigned inliers;
-    unsigned hull_size;
-    double hull[STEREO_MAX_ANCHORS][2];
-    uint8_t accepted[STEREO_MAX_ANCHORS];
-};
-
 int stereo_calibration_load(const char *path, const char *unit,
                             struct StereoCalibration *out);
 int stereo_calibration_valid(const struct StereoCalibration *c);
-int ds_ray(const struct DsCamera *c, double x, double y, double ray[3]);
-int ds_project(const struct DsCamera *c, const double p[3], double xy[2]);
+int camera_ray(const struct CameraModel *c, double x, double y, double ray[3]);
+int camera_project(const struct CameraModel *c, const double p[3], double xy[2]);
 /* Reject behind-camera, weak parallax, epipolar error and out-of-range depth.
  * z[0],z[1] are optical-axis metres; no nominal baseline is ever substituted.
  */
 int stereo_triangulate(const struct StereoCalibration *c,
                        const double left[2], const double right[2], double z[2]);
-int stereo_fit(const struct StereoAnchor *a, unsigned n, struct StereoFit *fit);
-/* 0 invalid, 1 interpolation within inlier convex hull, 2 extrapolation.
- * Separate mask prevents periphery being mistaken for supported geometry.
- */
-int stereo_support(const struct StereoAnchor *a, unsigned n,
-                   const struct StereoFit *fit, double x, double y);
+/* Each row is one physical point: prediction times measured optical Z, per eye. */
+unsigned stereo_scale(const double votes[][2], unsigned n, double *factor);
+/* On failure the caller publishes the full relative prediction for this eye. */
+int stereo_scale_map(const float *prediction, float *metres, unsigned pixels, double factor);
 /* CPU reference for RGA average 4x resize, 12 black rows top/bottom.
  * Native mono, no colour conversion or black-level/gamma manipulation.
  */
