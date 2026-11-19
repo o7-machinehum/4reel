@@ -11,6 +11,12 @@ make
 
 The SD-card image is written to `os/buildroot/output/images/sdcard.img`.
 
+The stereo configuration requires the local verified ZipDepth bundle before
+building. See [stereo build, calibration and operation](board/rv1103g/STEREO_ZIPDEPTH.md).
+Use an external `O=` directory for heavy build output. The development image
+contains real model inference, but hardware accuracy and throughput remain
+unverified; no per-unit calibration is supplied.
+
 Linux and U-Boot use standalone configs in `board/rv1103g/{linux,uboot}_defconfig`.
 After menuconfig changes, save them with `make linux-update-defconfig` or
 `make uboot-update-defconfig`. Omit the machine-specific

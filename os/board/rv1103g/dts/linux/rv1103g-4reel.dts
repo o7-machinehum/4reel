@@ -292,6 +292,24 @@
 	status = "okay";
 };
 
+&npu {
+	status = "okay";
+};
+
+&rga2 {
+	status = "okay";
+};
+
+/* R0.2: package pin 61, GPIO1_C4 mux 3. Both FSIN inputs share this
+ * hardware PWM; neither sensor's separate STROBE is tied to this output.
+ * Userspace enables it only after both sensors are armed.
+ */
+&pwm8 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm8m1_pins>;
+	status = "okay";
+};
+
 &sfc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&fspi_pins &fspi_cs0>;

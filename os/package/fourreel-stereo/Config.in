@@ -1,0 +1,8 @@
+config BR2_PACKAGE_FOURREEL_STEREO
+	bool "4reel stereo ZipDepth development pipeline"
+	depends on BR2_ARM_CPU_HAS_NEON
+	help
+	  Native triggered calibration capture and genuine RV1103 ZipDepth,
+	  with per-unit DS geometry and bounded CPU sparse stereo.
+	  Requires the verified local bundle described in STEREO_ZIPDEPTH.md.
+	  Hardware validation is still required; no factory calibration included.

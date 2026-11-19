@@ -1,0 +1,168 @@
+From: 4reel maintainers
+Subject: [PATCH] media: ov9281: select true RAW8 and external FSIN snapshots
+
+Keep RAW10 and board orientation; expose FSIN only as opt-in control.
+RAW8 registers follow upstream drivers/media/i2c/ov9282.c.
+FSIN snapshot registers follow OmniVision OV9281 datasheet section 4.8.
+
+--- a/drivers/media/i2c/ov9281.c
++++ b/drivers/media/i2c/ov9281.c
+@@ -36,6 +36,9 @@
+ #define OV9281_LINK_FREQ_400MHZ		400000000
+ /* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
+ #define OV9281_PIXEL_RATE		(OV9281_LINK_FREQ_400MHZ * 2 * 2 / 10)
++#define OV9281_PIXEL_RATE_RAW8		(OV9281_LINK_FREQ_400MHZ * 2 * 2 / 8)
++/* Board-private boolean: configure before STREAMON, default free running. */
++#define V4L2_CID_OV9281_FSIN (V4L2_CID_USER_BASE + 0x10f0)
+ #define OV9281_XVCLK_FREQ		24000000
+ 
+ #define CHIP_ID				0x9281
+@@ -156,6 +159,9 @@
+ 	struct v4l2_subdev	subdev;
+ 	struct media_pad	pad;
+ 	struct v4l2_ctrl_handler ctrl_handler;
++	struct v4l2_ctrl *pixel_rate;
++	struct v4l2_ctrl *fsin;
++	u32 code;
+ 	struct v4l2_ctrl	*exposure;
+ 	struct v4l2_ctrl	*anal_gain;
+ 	struct v4l2_ctrl	*digi_gain;
+@@ -570,8 +576,13 @@
+ 
+ 	mutex_lock(&ov9281->mutex);
+ 
++	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE && ov9281->streaming) {
++		mutex_unlock(&ov9281->mutex);
++		return -EBUSY;
++	}
+ 	mode = ov9281_find_best_fit(fmt);
+-	fmt->format.code = MEDIA_BUS_FMT_Y10_1X10;
++	if (fmt->format.code != MEDIA_BUS_FMT_Y8_1X8)
++		fmt->format.code = MEDIA_BUS_FMT_Y10_1X10;
+ 	fmt->format.width = mode->width;
+ 	fmt->format.height = mode->height;
+ 	fmt->format.field = V4L2_FIELD_NONE;
+@@ -584,6 +595,10 @@
+ #endif
+ 	} else {
+ 		ov9281->cur_mode = mode;
++		ov9281->code = fmt->format.code;
++		__v4l2_ctrl_s_ctrl_int64(ov9281->pixel_rate,
++			ov9281->code == MEDIA_BUS_FMT_Y8_1X8 ?
++			OV9281_PIXEL_RATE_RAW8 : OV9281_PIXEL_RATE);
+ 		h_blank = mode->hts_def - mode->width;
+ 		__v4l2_ctrl_modify_range(ov9281->hblank, h_blank,
+ 					 h_blank, 1, h_blank);
+@@ -616,7 +631,7 @@
+ 	} else {
+ 		fmt->format.width = mode->width;
+ 		fmt->format.height = mode->height;
+-		fmt->format.code = MEDIA_BUS_FMT_Y10_1X10;
++		fmt->format.code = ov9281->code;
+ 		fmt->format.field = V4L2_FIELD_NONE;
+ 	}
+ 	mutex_unlock(&ov9281->mutex);
+@@ -628,9 +643,9 @@
+ 				 struct v4l2_subdev_state *sd_state,
+ 				 struct v4l2_subdev_mbus_code_enum *code)
+ {
+-	if (code->index != 0)
++	if (code->index > 1)
+ 		return -EINVAL;
+-	code->code = MEDIA_BUS_FMT_Y10_1X10;
++	code->code = code->index ? MEDIA_BUS_FMT_Y8_1X8 : MEDIA_BUS_FMT_Y10_1X10;
+ 
+ 	return 0;
+ }
+@@ -642,7 +657,8 @@
+ 	if (fse->index >= ARRAY_SIZE(supported_modes))
+ 		return -EINVAL;
+ 
+-	if (fse->code != MEDIA_BUS_FMT_Y10_1X10)
++	if (fse->code != MEDIA_BUS_FMT_Y10_1X10 &&
++	    fse->code != MEDIA_BUS_FMT_Y8_1X8)
+ 		return -EINVAL;
+ 
+ 	fse->min_width  = supported_modes[fse->index].width;
+@@ -817,6 +833,29 @@
+ 	if (ret)
+ 		return ret;
+ 
++	/* Same true RAW8 PLL/ADC programming as upstream ov9282 (also OV9281).
++	 * Do not merely relabel the media bus: restore both registers on each start.
++	 */
++	ret = ov9281_write_reg(ov9281->client, 0x030d, 1,
++		ov9281->code == MEDIA_BUS_FMT_Y8_1X8 ? 0x60 : 0x50);
++	if (ret)
++		return ret;
++	ret = ov9281_write_reg(ov9281->client, 0x3662, 1,
++		ov9281->code == MEDIA_BUS_FMT_Y8_1X8 ? 0x07 : 0x05);
++	if (ret)
++		return ret;
++	if (ov9281->fsin->val) {
++		/* OV9281 datasheet 4.8: one frame per rising FSIN in snapshot mode.
++		 * FSIN is input, STROBE remains an independent output on each eye.
++		 */
++		static const struct regval trigger[] = {
++			{0x3006, 0x0c}, {0x303f, 0x01},
++			{0x3030, 0x04}, {0x4f00, 0x01}, {REG_NULL, 0},
++		};
++		ret = ov9281_write_array(ov9281->client, trigger);
++		if (ret)
++			return ret;
++	}
+ 	/* In case these controls are set before streaming */
+ 	mutex_unlock(&ov9281->mutex);
+ 	ret = v4l2_ctrl_handler_setup(&ov9281->ctrl_handler);
+@@ -866,6 +905,7 @@
+ 	}
+ 
+ 	ov9281->streaming = on;
++	__v4l2_ctrl_grab(ov9281->fsin, on);
+ 
+ unlock_and_return:
+ 	mutex_unlock(&ov9281->mutex);
+@@ -1049,7 +1089,8 @@
+ 	if (fie->index >= ARRAY_SIZE(supported_modes))
+ 		return -EINVAL;
+ 
+-	if (fie->code != MEDIA_BUS_FMT_Y10_1X10)
++	if (fie->code != MEDIA_BUS_FMT_Y10_1X10 &&
++	    fie->code != MEDIA_BUS_FMT_Y8_1X8)
+ 		return -EINVAL;
+ 
+ 	fie->width = supported_modes[fie->index].width;
+@@ -1182,6 +1223,13 @@
+ 	.s_ctrl = ov9281_set_ctrl,
+ };
+ 
++static const struct v4l2_ctrl_config ov9281_fsin_ctrl = {
++	.id = V4L2_CID_OV9281_FSIN,
++	.name = "External FSIN snapshot",
++	.type = V4L2_CTRL_TYPE_BOOLEAN,
++	.min = 0, .max = 1, .step = 1, .def = 0,
++};
++
+ static int ov9281_initialize_controls(struct ov9281 *ov9281)
+ {
+ 	const struct ov9281_mode *mode;
+@@ -1203,8 +1251,9 @@
+ 	if (ctrl)
+ 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+ 
+-	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
+-			  0, OV9281_PIXEL_RATE, 1, OV9281_PIXEL_RATE);
++	ov9281->pixel_rate = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
++			  0, OV9281_PIXEL_RATE_RAW8, 1, OV9281_PIXEL_RATE);
++	ov9281->fsin = v4l2_ctrl_new_custom(handler, &ov9281_fsin_ctrl, NULL);
+ 
+ 	h_blank = mode->hts_def - mode->width;
+ 	ov9281->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
+@@ -1334,6 +1383,7 @@
+ 
+ 	ov9281->client = client;
+ 	ov9281->cur_mode = &supported_modes[0];
++	ov9281->code = MEDIA_BUS_FMT_Y10_1X10;
+ 	ov9281->is_thunderboot = IS_ENABLED(CONFIG_VIDEO_ROCKCHIP_THUNDER_BOOT_ISP);
+ 
+ 	ov9281->xvclk = devm_clk_get(dev, "xvclk");
